@@ -598,6 +598,17 @@ class BaseAuthenticator(GenericOAuthenticator):
             hdfaai_restriction = json.load(f)
         if username not in hdfaai_restriction:
             raise web.HTTPError(403, "You're not allowed to use this service. Please contact support.")
+        hpc_infos = self.get_hpc_infos_via_ssh(uuidcode, username)
+        if type(hpc_infos) == str:
+            if len(hpc_infos) == 0:
+                hpc_infos = []
+            else:
+                hpc_infos = [hpc_infos]
+
+        # Create a dictionary. So we only have to check for machines via UNICORE/X that are not known yet        
+        self.log.debug("uuidcode={} - hpc_infos: {}".format(uuidcode, hpc_infos))
+        user_accs = get_user_dic(hpc_infos, self.resources, self.unicore_infos)
+        self.log.debug("uuidcode={} - User_accs dic: {}".format(uuidcode, user_accs))
         self.log.info("uuidcode={}, action=login, aai=hdfaai, username={}".format(uuidcode, username))
 
         return {
@@ -607,7 +618,7 @@ class BaseAuthenticator(GenericOAuthenticator):
                                'refreshtoken': refreshtoken,
                                'expire': expire,
                                'oauth_user': resp_json,
-                               'user_dic': {},
+                               'user_dic': user_accs,
                                'dispatch_updates': False,
                                'useraccs_complete': True,
                                'scope': scope,
