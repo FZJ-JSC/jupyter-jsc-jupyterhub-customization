@@ -10,6 +10,12 @@ from jupyterhub.handlers.base import BaseHandler
 
 class J4J_DeletionHandler(BaseHandler):
     @web.authenticated
+    async def delete(self):
+        user = self.current_user
+        if user:
+            self.log.debug("Delete User: {}".format(user.name))
+            
+    @web.authenticated
     async def get(self):
         user = self.current_user
         html = self.render_template('deletion.html',
