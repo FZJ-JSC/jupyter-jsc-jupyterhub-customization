@@ -4,8 +4,17 @@ Created on May 10, 2019
 @author: kreuzer
 '''
 
+from tornado import web
+
 from jupyterhub.handlers.base import BaseHandler
 
+class J4J_DeletionHandler(BaseHandler):
+    @web.authenticated
+    async def get(self):
+        user = self.current_user
+        html = self.render_template('deletion.html',
+                                    user=user)
+        self.finish(html)
 
 class J4J_ToSHandler(BaseHandler):
     async def get(self):
