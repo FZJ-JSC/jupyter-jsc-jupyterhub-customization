@@ -39,7 +39,7 @@ class J4J_DeletionAPIHandler(APIHandler):
         user = self.current_user
         if user:
             uuidcode = uuid.uuid4().hex
-            user.authenticator.update_mem(user, uuidcode)
+            await user.authenticator.update_mem(user, uuidcode)
             self.log.info("uuidcode={} - action=deletion - Delete User: {}".format(uuidcode, user.name))
             with open(user.authenticator.user_deletion_config_path, "r") as f:
                 deletion_config = json.load(f)
@@ -117,6 +117,9 @@ class J4J_DeletionAPIHandler(APIHandler):
                        'UID={}'.format(user.name)]
                 subprocess.Popen(cmd)
             # ------ User deletion Unity-JSC finished
+            self.redirect(self.settings['logout_url'])
+        else:
+            raise web.HTTPError(404, 'User not found. Please logout, login and try again. If this does not help contact support.')
 
 class J4J_ToSHandler(BaseHandler):
     async def get(self):
