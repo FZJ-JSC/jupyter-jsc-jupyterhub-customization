@@ -117,7 +117,6 @@ class J4J_DeletionAPIHandler(APIHandler):
                        'UID={}'.format(user.name)]
                 subprocess.Popen(cmd)
             # ------ User deletion Unity-JSC finished
-            self.redirect(self.settings['logout_url'])
         else:
             raise web.HTTPError(404, 'User not found. Please logout, login and try again. If this does not help contact support.')
 
