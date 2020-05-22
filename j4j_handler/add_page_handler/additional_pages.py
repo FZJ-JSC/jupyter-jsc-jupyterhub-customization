@@ -4,24 +4,26 @@ Created on May 10, 2019
 @author: kreuzer
 '''
 
-import asyncio
-import json
-import requests
-import subprocess
-import time
+#import asyncio
+#import json
+#import requests
+#import subprocess
+#import time
 import uuid
 
-from contextlib import closing
-from datetime import timedelta
-from tornado import gen, web
+#from contextlib import closing
+#from datetime import timedelta
+#from tornado import gen, web
+from tornado import web
 
-from j4j_spawner.file_loads import get_token
+#from j4j_spawner.file_loads import get_token
+
 
 from jupyterhub.apihandlers.base import APIHandler
 from jupyterhub.handlers.base import BaseHandler
-from jupyterhub.utils import maybe_future
+#from jupyterhub.utils import maybe_future
 
-from jupyterhub.metrics import RUNNING_SERVERS, SERVER_STOP_DURATION_SECONDS, ServerStopStatus
+#from jupyterhub.metrics import RUNNING_SERVERS, SERVER_STOP_DURATION_SECONDS, ServerStopStatus
 
 
 class J4J_DeletionHandler(APIHandler):
@@ -32,6 +34,7 @@ class J4J_DeletionHandler(APIHandler):
             uuidcode = uuid.uuid4().hex
             user.authenticator.update_mem(user, uuidcode)
             self.log.info("uuidcode={} - action=deletion - Delete User: {}".format(uuidcode, user.name))
+            """
             with open(user.authenticator.user_deletion_config_path, "r") as f:
                 deletion_config = json.load(f)
             if deletion_config.get('deletion', {}).get('hdf', False):
@@ -57,12 +60,12 @@ class J4J_DeletionHandler(APIHandler):
                 for server_name, spawner in user.spawners.items():
                     spawner._stop_pending = True
                     async def stop():
-                        """Stop the server
+                        ""Stop the server
         
                         1. remove it from the proxy
                         2. stop the server
                         3. notice that it stopped
-                        """
+                        ""
                         tic = time.perf_counter()
                         try:
                             await self.proxy.delete_user(user, server_name)
@@ -108,7 +111,8 @@ class J4J_DeletionHandler(APIHandler):
                        'UID={}'.format(user.name)]
                 subprocess.Popen(cmd)
             # ------ User deletion Unity-JSC finished
-            
+            """
+        
     @web.authenticated
     async def get(self):
         user = self.current_user
