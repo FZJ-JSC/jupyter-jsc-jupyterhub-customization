@@ -239,14 +239,24 @@ class BaseAuthenticator(GenericOAuthenticator):
         help = "Path to the unicore.json file, which systems should be checked via UNICORE/X"
     )
 
-
-
     proxy_secret = Unicode( # Used outside Authenticator
         os.environ.get('PROXY_SECRET', ''),
         config = True,
         help = "Path to the configurable http proxy secret file"
     )
-
+    
+    user_deletion_config_path = Unicode( # Used outside Authenticator
+        os.environ.get('USER_DELETION_CONFIG_PATH', 'False'),
+        config=True,
+        help=''
+    )
+    
+    dockermaster_token_path = Unicode( # Used outside Authenticator
+        os.environ.get('DOCKERMASTER_TOKEN_PATH', ''),
+        config = True,
+        help = "Path to the DockerMaster / HDF-Cloud-Master token file"
+    )
+    
     orchestrator_token_path = Unicode( # Used outside Authenticator
         os.environ.get('ORCHESTRATOR_TOKEN_PATH', ''),
         config = True,
