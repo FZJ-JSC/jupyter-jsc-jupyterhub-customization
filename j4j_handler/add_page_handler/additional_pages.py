@@ -74,6 +74,8 @@ class J4J_DeletionAPIHandler(APIHandler):
                 if deletion_config.get('deletion', {}).get('jhub', False):
                     # ------ User deletion JHub
                     self.log.debug("uuidcode={} - Delete User from JHub Resources".format(uuidcode))
+                    await user.authenticator.logout_handler.default_handle_logout()
+                    await self.handle_logout()
                     spawner_dic = list(user.spawners.keys())
                     for server_name in spawner_dic:
                         user.spawners[server_name]._stop_pending = True
