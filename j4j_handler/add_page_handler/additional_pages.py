@@ -114,10 +114,11 @@ class J4J_DeletionAPIHandler(APIHandler):
                             self.log.warning(
                                 "User %s:%s server is slow to stop", user.name, server_name
                             )
-            
+                        del user.spawners[server_name]
                     await maybe_future(self.authenticator.delete_user(user))
                     # remove from registry
                     self.users.delete(user)
+                    self.clear_login_cookie()
                 # ------ User deletion JHub finished ----
                 self.set_header('Content-Type', 'text/plain')
                 self.set_status(204)
