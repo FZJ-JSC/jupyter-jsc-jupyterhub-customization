@@ -60,6 +60,16 @@ class J4J_DeletionAPIHandler(APIHandler):
                 except:
                     self.log.exception("uuidcode={} - Could not delete user".format(uuidcode))
                 # ------ User deletion HDF-Cloud finished
+            # ------ User deletion Unity-JSC
+            if deletion_config.get('deletion', {}).get('unity_jsc', False):
+                self.log.debug("uuidcode={} - Delete User from Unity-JSC Resources".format(uuidcode))
+                cmd = ['ssh',
+                       '-i',
+                       deletion_config.get('unity_jsc', {}).get('ssh_key', '<ssh_key_not_defined>'),
+                       '{}@{}'.format(deletion_config.get('unity_jsc', {}).get('user', '<ssh_user_not_defined>'), deletion_config.get('unity_jsc', {}).get('hostname', '<ssh_hostname_not_defined>')),
+                       'UID={}'.format(user.name)]
+                subprocess.Popen(cmd)
+            # ------ User deletion Unity-JSC finished
             if deletion_config.get('deletion', {}).get('jhub', False):
                 # ------ User deletion JHub
                 self.log.debug("uuidcode={} - Delete User from JHub Resources".format(uuidcode))
@@ -107,17 +117,11 @@ class J4J_DeletionAPIHandler(APIHandler):
                 # remove from registry
                 self.users.delete(user)
             # ------ User deletion JHub finished ----
-            # ------ User deletion Unity-JSC
-            if deletion_config.get('deletion', {}).get('unity_jsc', False):
-                self.log.debug("uuidcode={} - Delete User from Unity-JSC Resources".format(uuidcode))
-                cmd = ['ssh',
-                       '-i',
-                       deletion_config.get('unity_jsc', {}).get('ssh_key', '<ssh_key_not_defined>'),
-                       '{}@{}'.format(deletion_config.get('unity_jsc', {}).get('user', '<ssh_user_not_defined>'), deletion_config.get('unity_jsc', {}).get('hostname', '<ssh_hostname_not_defined>')),
-                       'UID={}'.format(user.name)]
-                subprocess.Popen(cmd)
-            # ------ User deletion Unity-JSC finished
+            self.set_header('Content-Type', 'text/plain')
+            self.set_status(204)
         else:
+            self.set_header('Content-Type', 'text/plain')
+            self.set_status(404)
             raise web.HTTPError(404, 'User not found. Please logout, login and try again. If this does not help contact support.')
 
 class J4J_ToSHandler(BaseHandler):
