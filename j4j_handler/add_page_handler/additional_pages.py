@@ -17,9 +17,9 @@ from tornado import gen, web
 
 from j4j_spawner.file_loads import get_token
 
-
 from jupyterhub.apihandlers.base import APIHandler
 from jupyterhub.handlers.base import BaseHandler
+from jupyterhub.handlers.login import LogoutHandler
 from jupyterhub.utils import maybe_future
 
 from jupyterhub.metrics import RUNNING_SERVERS, SERVER_STOP_DURATION_SECONDS, ServerStopStatus
@@ -74,8 +74,9 @@ class J4J_RemoveAccountAPIHandler(APIHandler):
                 if removal_config.get('removal', {}).get('jhub', False):
                     # ------ User removal JHub
                     self.log.debug("uuidcode={} - Remove User from JHub Resources".format(uuidcode))
-                    await user.authenticator.logout_handler.default_handle_logout()
-                    await self.handle_logout()
+                    logout_handler = LogoutHandler()
+                    await logout_handler.default_handle_logout()
+                    await logout_handler.handle_logout()
                     spawner_dic = list(user.spawners.keys())
                     for server_name in spawner_dic:
                         user.spawners[server_name]._stop_pending = True
