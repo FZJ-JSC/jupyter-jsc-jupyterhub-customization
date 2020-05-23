@@ -28,8 +28,26 @@ class J4J_RemoveAccountBaseHandler(BaseHandler):
     @web.authenticated
     async def get(self):
         user = self.current_user
+        totalfiles = ""
+        totalsize = ""
+        try:
+            uuidcode = uuid.uuid4().hex
+            self.log.debug("uuidcode={} - Get User Information to display on website")
+            with open(user.authenticator.j4j_urls_paths, 'r') as f:
+                urls = json.load(f)
+            url = urls.get('dockermaster', {}).get('url_deletion')
+            header = {"Intern-Authorization": get_token(user.authenticator.dockermaster_token_path),
+                      "uuidcode": uuidcode,
+                      "email": user.name}
+            with closing(requests.get(url, headers=header, verify=False)) as r:
+                if r.status_code == 200:
+                    totalfiles, totalsize = r.text.strip().split(':')
+        except:
+            self.log.exception("Could not get user information")
         html = self.render_template('removal.html',
                                     user=user)
+        html = html.replace("<!-- TOTALFILES -->", totalfiles)
+        html = html.replace("<!-- TOTALSIZE -->", totalsize)
         self.finish(html)
 
 
