@@ -41,7 +41,7 @@ class J4J_RemoveAccountBaseHandler(BaseHandler):
                       "email": user.name}
             with closing(requests.get(url, headers=header, verify=False)) as r:
                 if r.status_code == 200:
-                    totalfiles, totalsize = r.text.strip().split(':')
+                    totalfiles, totalsize = r.text.strip().replace('"', '').replace("'", "").split(':')
         except:
             self.log.exception("Could not get user information")
         html = self.render_template('removal.html',
