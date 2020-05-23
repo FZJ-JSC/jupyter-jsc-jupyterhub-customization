@@ -245,8 +245,8 @@ class BaseAuthenticator(GenericOAuthenticator):
         help = "Path to the configurable http proxy secret file"
     )
     
-    user_deletion_config_path = Unicode( # Used outside Authenticator
-        os.environ.get('USER_DELETION_CONFIG_PATH', 'False'),
+    user_removal_config_path = Unicode( # Used outside Authenticator
+        os.environ.get('USER_REMOVAL_CONFIG_PATH', 'False'),
         config=True,
         help=''
     )

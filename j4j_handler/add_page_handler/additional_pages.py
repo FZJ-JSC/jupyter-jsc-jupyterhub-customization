@@ -24,16 +24,16 @@ from jupyterhub.utils import maybe_future
 
 from jupyterhub.metrics import RUNNING_SERVERS, SERVER_STOP_DURATION_SECONDS, ServerStopStatus
 
-class J4J_DeletionBaseHandler(BaseHandler):
+class J4J_RemoveAccountBaseHandler(BaseHandler):
     @web.authenticated
     async def get(self):
         user = self.current_user
-        html = self.render_template('deletion.html',
+        html = self.render_template('removal.html',
                                     user=user)
         self.finish(html)
 
 
-class J4J_DeletionAPIHandler(APIHandler):
+class J4J_RemoveAccountAPIHandler(APIHandler):
     @web.authenticated
     async def delete(self):
         user = self.current_user
@@ -41,39 +41,39 @@ class J4J_DeletionAPIHandler(APIHandler):
             try:
                 uuidcode = uuid.uuid4().hex
                 await user.authenticator.update_mem(user, uuidcode)
-                self.log.info("uuidcode={} - action=deletion - Delete User: {}".format(uuidcode, user.name))
-                with open(user.authenticator.user_deletion_config_path, "r") as f:
-                    deletion_config = json.load(f)
-                if deletion_config.get('deletion', {}).get('hdf', False):
-                    self.log.debug("uuidcode={} - Delete User from HDF-Cloud Resources".format(uuidcode))
-                    # ------ User deletion HDF-Cloud
+                self.log.info("uuidcode={} - action=removeaccount - Remove User: {}".format(uuidcode, user.name))
+                with open(user.authenticator.user_removal_config_path, "r") as f:
+                    removal_config = json.load(f)
+                if removal_config.get('removal', {}).get('hdf', False):
+                    self.log.debug("uuidcode={} - Remove User from HDF-Cloud Resources".format(uuidcode))
+                    # ------ User Removal HDF-Cloud
                     with open(user.authenticator.j4j_urls_paths, 'r') as f:
                         urls = json.load(f)
                     # Remove user from HDF-Cloud Resources
-                    url = urls.get('dockermaster', {}).get('url_deletion', '<url_deletion_not_defined>')
+                    url = urls.get('dockermaster', {}).get('url_removal', '<url_removal_not_defined>')
                     header = {"Intern-Authorization": get_token(user.authenticator.dockermaster_token_path),
                               "uuidcode": uuidcode,
                               "email": user.name}
                     try:
                         with closing(requests.delete(url, headers=header, verify=False)) as r:
                             if r.status_code != 204:
-                                self.log.warning("uuidcode={} - Could not delete user at HDF-Cloud Master: {} {}".format(uuidcode, r.status_code, r.text))
+                                self.log.warning("uuidcode={} - Could not remove user at HDF-Cloud Master: {} {}".format(uuidcode, r.status_code, r.text))
                     except:
-                        self.log.exception("uuidcode={} - Could not delete user".format(uuidcode))
-                    # ------ User deletion HDF-Cloud finished
-                # ------ User deletion Unity-JSC
-                if deletion_config.get('deletion', {}).get('unity_jsc', False):
-                    self.log.debug("uuidcode={} - Delete User from Unity-JSC Resources".format(uuidcode))
+                        self.log.exception("uuidcode={} - Could not remove user".format(uuidcode))
+                    # ------ User removal HDF-Cloud finished
+                # ------ User Removal Unity-JSC
+                if removal_config.get('removal', {}).get('unity_jsc', False):
+                    self.log.debug("uuidcode={} - Remove User from Unity-JSC Resources".format(uuidcode))
                     cmd = ['ssh',
                            '-i',
-                           deletion_config.get('unity_jsc', {}).get('ssh_key', '<ssh_key_not_defined>'),
-                           '{}@{}'.format(deletion_config.get('unity_jsc', {}).get('user', '<ssh_user_not_defined>'), deletion_config.get('unity_jsc', {}).get('hostname', '<ssh_hostname_not_defined>')),
+                           removal_config.get('unity_jsc', {}).get('ssh_key', '<ssh_key_not_defined>'),
+                           '{}@{}'.format(removal_config.get('unity_jsc', {}).get('user', '<ssh_user_not_defined>'), removal_config.get('unity_jsc', {}).get('hostname', '<ssh_hostname_not_defined>')),
                            'UID={}'.format(user.name)]
                     subprocess.Popen(cmd)
-                # ------ User deletion Unity-JSC finished
-                if deletion_config.get('deletion', {}).get('jhub', False):
-                    # ------ User deletion JHub
-                    self.log.debug("uuidcode={} - Delete User from JHub Resources".format(uuidcode))
+                # ------ User Removal Unity-JSC finished
+                if removal_config.get('removal', {}).get('jhub', False):
+                    # ------ User removal JHub
+                    self.log.debug("uuidcode={} - Remove User from JHub Resources".format(uuidcode))
                     await user.authenticator.logout_handler.default_handle_logout()
                     await self.handle_logout()
                     spawner_dic = list(user.spawners.keys())
@@ -119,12 +119,12 @@ class J4J_DeletionAPIHandler(APIHandler):
                     await maybe_future(self.authenticator.delete_user(user))
                     # remove from registry
                     self.users.delete(user)
-                # ------ User deletion JHub finished ----
+                # ------ User Removal JHub finished ----
                 self.set_header('Content-Type', 'text/plain')
                 self.set_status(204)
             except:
                 self.set_status(500)
-                self.write("Something went wrong. Please contact support to delete your account.")
+                self.write("Something went wrong. Please contact support to remove your account.")
                 self.flush()
         else:
             self.set_header('Content-Type', 'text/plain')
