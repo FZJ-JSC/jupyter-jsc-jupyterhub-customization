@@ -123,6 +123,7 @@ class J4J_RemoveAccountAPIHandler(APIHandler):
                 self.set_header('Content-Type', 'text/plain')
                 self.set_status(204)
             except:
+                self.log.exception("Bugfix required")
                 self.set_status(500)
                 self.write("Something went wrong. Please contact support to remove your account.")
                 self.flush()
