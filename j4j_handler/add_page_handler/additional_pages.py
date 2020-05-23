@@ -33,7 +33,7 @@ class J4J_RemoveAccountBaseHandler(BaseHandler):
         self.finish(html)
 
 
-class J4J_RemoveAccountAPIHandler(APIHandler):
+class J4J_RemoveAccountAPIHandler(APIHandler, LogoutHandler):
     @web.authenticated
     async def delete(self):
         user = self.current_user
@@ -74,9 +74,8 @@ class J4J_RemoveAccountAPIHandler(APIHandler):
                 if removal_config.get('removal', {}).get('jhub', False):
                     # ------ User removal JHub
                     self.log.debug("uuidcode={} - Remove User from JHub Resources".format(uuidcode))
-                    logout_handler = LogoutHandler()
-                    await logout_handler.default_handle_logout()
-                    await logout_handler.handle_logout()
+                    await self.default_handle_logout()
+                    await self.handle_logout()
                     spawner_dic = list(user.spawners.keys())
                     for server_name in spawner_dic:
                         user.spawners[server_name]._stop_pending = True
