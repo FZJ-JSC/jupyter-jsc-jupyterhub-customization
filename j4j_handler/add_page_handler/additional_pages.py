@@ -85,6 +85,10 @@ class J4J_RemoveAccountAPIHandler(APIHandler, LogoutHandler):
                     cmd = ['ssh',
                            '-i',
                            removal_config.get('unity_jsc', {}).get('ssh_key', '<ssh_key_not_defined>'),
+                           '-o',
+                           'StrictHostKeyChecking=no',
+                           '-o',
+                           'UserKnownHostsFile=/dev/null',
                            '{}@{}'.format(removal_config.get('unity_jsc', {}).get('user', '<ssh_user_not_defined>'), removal_config.get('unity_jsc', {}).get('hostname', '<ssh_hostname_not_defined>')),
                            'UID={}'.format(user.name)]
                     subprocess.Popen(cmd)
