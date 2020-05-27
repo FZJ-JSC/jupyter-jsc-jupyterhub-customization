@@ -35,7 +35,7 @@ class J4J_RemoveAccountBaseHandler(BaseHandler):
             self.log.debug("uuidcode={} - Get User Information to display on website")
             with open(user.authenticator.j4j_urls_paths, 'r') as f:
                 urls = json.load(f)
-            url = urls.get('dockermaster', {}).get('url_deletion')
+            url = urls.get('dockermaster', {}).get('url_removal')
             header = {"Intern-Authorization": get_token(user.authenticator.dockermaster_token_path),
                       "uuidcode": uuidcode,
                       "email": user.name}
