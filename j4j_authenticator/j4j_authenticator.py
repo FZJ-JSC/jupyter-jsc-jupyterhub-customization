@@ -239,14 +239,24 @@ class BaseAuthenticator(GenericOAuthenticator):
         help = "Path to the unicore.json file, which systems should be checked via UNICORE/X"
     )
 
-
-
     proxy_secret = Unicode( # Used outside Authenticator
         os.environ.get('PROXY_SECRET', ''),
         config = True,
         help = "Path to the configurable http proxy secret file"
     )
-
+    
+    user_removal_config_path = Unicode( # Used outside Authenticator
+        os.environ.get('USER_REMOVAL_CONFIG_PATH', 'False'),
+        config=True,
+        help=''
+    )
+    
+    dockermaster_token_path = Unicode( # Used outside Authenticator
+        os.environ.get('DOCKERMASTER_TOKEN_PATH', ''),
+        config = True,
+        help = "Path to the DockerMaster / HDF-Cloud-Master token file"
+    )
+    
     orchestrator_token_path = Unicode( # Used outside Authenticator
         os.environ.get('ORCHESTRATOR_TOKEN_PATH', ''),
         config = True,
@@ -598,6 +608,17 @@ class BaseAuthenticator(GenericOAuthenticator):
             hdfaai_restriction = json.load(f)
         if username not in hdfaai_restriction:
             raise web.HTTPError(403, "You're not allowed to use this service. Please contact support.")
+        hpc_infos = self.get_hpc_infos_via_ssh(uuidcode, username)
+        if type(hpc_infos) == str:
+            if len(hpc_infos) == 0:
+                hpc_infos = []
+            else:
+                hpc_infos = [hpc_infos]
+
+        # Create a dictionary. So we only have to check for machines via UNICORE/X that are not known yet        
+        self.log.debug("uuidcode={} - hpc_infos: {}".format(uuidcode, hpc_infos))
+        user_accs = get_user_dic(hpc_infos, self.resources, self.unicore_infos)
+        self.log.debug("uuidcode={} - User_accs dic: {}".format(uuidcode, user_accs))
         self.log.info("uuidcode={}, action=login, aai=hdfaai, username={}".format(uuidcode, username))
 
         return {
@@ -607,7 +628,7 @@ class BaseAuthenticator(GenericOAuthenticator):
                                'refreshtoken': refreshtoken,
                                'expire': expire,
                                'oauth_user': resp_json,
-                               'user_dic': {},
+                               'user_dic': user_accs,
                                'dispatch_updates': False,
                                'useraccs_complete': True,
                                'scope': scope,

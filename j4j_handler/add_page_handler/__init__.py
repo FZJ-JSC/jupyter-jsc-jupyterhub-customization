@@ -1,3 +1,5 @@
+from .additional_pages import J4J_RemoveAccountAPIHandler
+from .additional_pages import J4J_RemoveAccountBaseHandler
 from .additional_pages import J4J_DPSHandler
 from .additional_pages import J4J_ToSHandler
 from .additional_pages import J4J_ImprintHandler

@@ -569,6 +569,9 @@ def onchange_dd5(user_dic, reservations_dic={}):
                         elif default == "_min_":
                             default = mini
                         text = res_info.get('TEXT').replace('_min_', "{}".format(mini)).replace('_max_', "{}".format(maxi))
+                        # only show resource if VISIBLE is not false in resource information
+                        if res_info.get('VISIBLE', 'true').lower() == 'true':
+                            ret += "            $('#resource_{}_div').show();\n".format(resource_name.lower())
                         ret += "            $('#resource_{}_div').show();\n".format(resource_name.lower())
                         ret += "            $('#resource_"+ resource_name.lower() +"_input').attr({\"max\": "+ "{}".format(maxi) +", \"min\": "+ "{}".format(mini) +", \"value\": "+ "{}".format(default) +" });\n"
                         ret += "            $('#resource_"+ resource_name.lower() +"_label').text(\""+text+"\");\n"
