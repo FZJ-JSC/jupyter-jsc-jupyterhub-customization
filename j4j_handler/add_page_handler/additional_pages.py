@@ -6,6 +6,7 @@ Created on May 10, 2019
 
 import asyncio
 import json
+import os
 import requests
 import subprocess
 import time
@@ -20,9 +21,15 @@ from j4j_spawner.file_loads import get_token
 from jupyterhub.apihandlers.base import APIHandler
 from jupyterhub.handlers.base import BaseHandler
 from jupyterhub.handlers.login import LogoutHandler
-from jupyterhub.utils import maybe_future
+from jupyterhub.utils import maybe_future, admin_only
 
 from jupyterhub.metrics import RUNNING_SERVERS, SERVER_STOP_DURATION_SECONDS, ServerStopStatus
+
+class J4J_LogOffAllAPIHandler(APIHandler, LogoutHandler):
+    @admin_only
+    async def delete(self):
+        #self.app.users
+        return
 
 class J4J_RemoveAccountBaseHandler(BaseHandler):
     @web.authenticated
@@ -50,6 +57,46 @@ class J4J_RemoveAccountBaseHandler(BaseHandler):
         html = html.replace("<!-- TOTALSIZE -->", totalsize)
         self.finish(html)
 
+class J4J_2FAAPIHandler(APIHandler):
+    @web.authenticated
+    async def post(self):
+        user = self.current_user
+        if user:
+            try:
+                uuidcode = uuid.uuid4().hex
+                await user.authenticator.update_mem(user, uuidcode)
+                self.log.info("uuidcode={} - action=2faopt - Add User to 2FA optional group: {}".format(uuidcode, user.name))
+                unity_path = os.environ.get('UNITY_FILE', '<no unity file path defined>')
+                with open(unity_path, 'r') as f:
+                    unity = json.load(f)
+                auth_state = await user.get_auth_state()
+                if auth_state.get('login_handler') == 'jscldap':
+                    token_url = os.environ.get('JSCLDAP_TOKEN_URL', '<no token url defined>')
+                elif auth_state.get('login_handler') == 'jscusername':
+                    token_url = os.environ.get('JSCUSERNAME_TOKEN_URL', '<no token url defined>')
+                elif auth_state.get('login_handler') == 'hdfaai':
+                    token_url = os.environ.get('HDFAAI_TOKEN_URL', '<no token url defined>')
+                unity.get(token_url, {}).get('2FA')
+                self.log.debug("uuidcode={} - Remove User from Unity-JSC Resources".format(uuidcode))
+                cmd = ['ssh',
+                       '-i',
+                       unity.get(token_url, {}).get('2FA').get('key', '<ssh_key_not_defined>'),
+                       '-o',
+                       'StrictHostKeyChecking=no',
+                       '-o',
+                       'UserKnownHostsFile=/dev/null',
+                       '{}@{}'.format(unity.get(token_url, {}).get('2FA').get('user', '<ssh_user_not_defined>'), unity.get(token_url, {}).get('2FA').get('host', '<ssh_hostname_not_defined>')),
+                       'UID={}'.format(user.name)]
+                subprocess.Popen(cmd)
+            except:
+                self.log.exception("Bugfix required")
+                self.set_status(500)
+                self.write("Something went wrong. Please contact support to activate two factor authentication.")
+                self.flush()
+        else:
+            self.set_header('Content-Type', 'text/plain')
+            self.set_status(404)
+            raise web.HTTPError(404, 'User not found. Please logout, login and try again. If this does not help contact support.')
 
 class J4J_RemoveAccountAPIHandler(APIHandler, LogoutHandler):
     @web.authenticated
@@ -156,7 +203,7 @@ class J4J_RemoveAccountAPIHandler(APIHandler, LogoutHandler):
 
 class J4J_ToSHandler(BaseHandler):
     async def get(self):
-        user = self.current_user        
+        user = self.current_user
         html = self.render_template(
                     'tos.html',
                     user=user)
@@ -164,7 +211,7 @@ class J4J_ToSHandler(BaseHandler):
         
 class J4J_DPSHandler(BaseHandler):
     async def get(self):
-        user = self.current_user        
+        user = self.current_user
         html = self.render_template(
                     'dps.html',
                     user=user)
@@ -172,15 +219,24 @@ class J4J_DPSHandler(BaseHandler):
         
 class J4J_ImprintHandler(BaseHandler):
     async def get(self):
-        user = self.current_user        
+        user = self.current_user
         html = self.render_template(
                     'imprint.html',
                     user=user)
         self.finish(html)
-        
+
+class J4J_2FAHandler(BaseHandler):
+    @web.authenticated
+    async def get(self):
+        user = self.current_user
+        html = self.render_template(
+                    '2FA.html',
+                    user=user)
+        self.finish(html)
+
 class J4J_TestHandler(BaseHandler):
     async def get(self):
-        user = self.current_user        
+        user = self.current_user
         html = self.render_template(
                     'test.html',
                     user=user)
@@ -188,7 +244,7 @@ class J4J_TestHandler(BaseHandler):
         
 class J4J_ProjectsHandler(BaseHandler):
     async def get(self):
-        user = self.current_user        
+        user = self.current_user
         html = self.render_template(
                     'projects.html',
                     user=user)
@@ -196,7 +252,7 @@ class J4J_ProjectsHandler(BaseHandler):
         
 class J4J_KernelHandler(BaseHandler):
     async def get(self):
-        user = self.current_user        
+        user = self.current_user
         html = self.render_template(
                     'kernel.html',
                     user=user)
