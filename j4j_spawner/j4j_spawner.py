@@ -15,6 +15,7 @@ import os
 from traitlets import Unicode, Dict, List
 from asyncio import sleep
 from contextlib import closing
+from tornado import web
 
 from async_generator import async_generator, yield_
 
@@ -570,16 +571,22 @@ class J4J_Spawner(Spawner):
             if len(maintenance) > 0:
                 self.log.debug("userserver={} - Systems in Maintenance: {}".format(self._log_name.lower(), maintenance))
             reservations_var = reservations(user_dic, self.reservation_paths, self.slurm_systems)
-            #if self.user.name in self.user.authenticator.admin_users:
-            #    self.log.debug("User_dic: {}".format(user_dic))
-            #    self.log.debug("Reservations_paths: {}".format(self.reservation_paths))
-            #    self.log.debug("slurm_systems: {}".format(self.slurm_systems))
-            #    self.log.debug("Reservations_var: {}".format(reservations_var))
             with open(self.spawn_config_path, 'r') as f:
                 spawn_config = json.load(f)
             with open(self.user.authenticator.unicore_infos, 'r') as f:
                 ux = json.load(f)
-            user_dic['HDF-Cloud'] = ux.get('HDF-Cloud', {}).get('images')
+            if state.get('use_hdf_cloud', True):
+                user_dic['HDF-Cloud'] = ux.get('HDF-Cloud', {}).get('images')
+            if len(user_dic.keys()) == 0:
+                if len(maintenance) > 0:
+                    raise web.HTTPError(403, "No resources available for you. Systems in maintenance: {}".format(maintenance))
+                else:
+                    raise web.HTTPError(403, "You're not allowed to use any resources. For more information please contact support.")
+            if self.user.name in self.user.authenticator.admin_users:
+                self.log.debug("User_dic: {}".format(user_dic))
+            #    self.log.debug("Reservations_paths: {}".format(self.reservation_paths))
+            #    self.log.debug("slurm_systems: {}".format(self.slurm_systems))
+            #    self.log.debug("Reservations_var: {}".format(reservations_var))
             with open(self.dashboards_path, 'r') as f:
                 dashboards = json.load(f)
             with open(self.project_checkbox_path, 'r') as f:
