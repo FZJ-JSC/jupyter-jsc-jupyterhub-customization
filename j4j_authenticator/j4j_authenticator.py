@@ -772,11 +772,19 @@ class BaseAuthenticator(GenericOAuthenticator):
             if group_key in resp_json.keys():
                 # if he is in an allowed group, he can use the hdf resources
                 # if he is not in an allowed group but he has hpc resources, he is allowed to use the hdf-cloud, too
+                if username in self.admin_users:
+                    self.log.debug("uuidcode={} - Group Check: {}".format(uuidcode, resp_json.get(group_key) in unity[self.jscldap_authorize_url].get('allowed_groups', [])))
+                    self.log.debug("uuidcode={} - Group Check: {}".format(uuidcode, len(hpc_infos) != 0))
+                    self.log.debug("uuidcode={} - Group Check: {}".format(uuidcode, resp_json.get(group_key) in unity[self.jscldap_authorize_url].get('allowed_groups', []) or len(hpc_infos) != 0))
                 use_hdf_resources = resp_json.get(group_key) in unity[self.jscldap_authorize_url].get('allowed_groups', []) or len(hpc_infos) != 0
             else:
                 # no group given. Are you whitelisted?
                 with open(self.hdfaai_restriction_path, 'r') as f:
                     hdfaai_restriction = json.load(f)
+                if username in self.admin_users:
+                    self.log.debug("uuidcode={} - Whitelist Check: {}".format(uuidcode, username in hdfaai_restriction))
+                    self.log.debug("uuidcode={} - Whitelist Check: {}".format(uuidcode, len(hpc_infos) != 0))
+                    self.log.debug("uuidcode={} - Whitelist Check: {}".format(uuidcode, username in hdfaai_restriction or len(hpc_infos) != 0))
                 use_hdf_resources = username in hdfaai_restriction or len(hpc_infos) != 0
 
         # Create a dictionary. So we only have to check for machines via UNICORE/X that are not known yet
