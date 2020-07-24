@@ -67,7 +67,7 @@ class JSCLDAPLoginHandler(OAuthLoginHandler, JSCLDAPEnvMixin):
         self.authorize_redirect(
             redirect_uri=redirect_uri,
             client_id=unity[self.authenticator.jscldap_token_url]['client_id'],
-            scope=unity[self.authenticator.jscldap_authorize_url]['scope'],
+            scope=unity[self.authenticator.jscldap_token_url]['scope'],
             extra_params=extra_parameters,
             response_type='code')
 
