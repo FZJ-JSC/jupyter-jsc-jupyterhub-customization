@@ -765,8 +765,8 @@ class BaseAuthenticator(GenericOAuthenticator):
                 hpc_infos = []
             else:
                 hpc_infos = [hpc_infos]
-        authenticator_key = unity[self.jscldap_authorize_url]['authenticator_key']
-        group_key = unity[self.jscldap_authorize_url].get('group_key', '<no_group_key>')
+        authenticator_key = unity.get(self.jscldap_token_url, {}).get('authenticator_key', '<no_authenticator_key>')
+        group_key = unity.get(self.jscldap_token_url, {}).get('group_key', '<no_group_key>')
         if resp_json.get(authenticator_key, '') == 'hdfaai':
             use_hdf_resources = False
             if group_key in resp_json.keys():
@@ -774,14 +774,14 @@ class BaseAuthenticator(GenericOAuthenticator):
                 # if he is not in an allowed group but he has hpc resources, he is allowed to use the hdf-cloud, too
                 if username in self.admin_users:
                     self.log.debug("uuidcode={} - Group Check - Groups: {}".format(uuidcode, resp_json.get(group_key, [])))
-                    self.log.debug("uuidcode={} - Group Check - Allowed Groups: {}".format(uuidcode, unity[self.jscldap_authorize_url].get('allowed_groups', [])))
+                    self.log.debug("uuidcode={} - Group Check - Allowed Groups: {}".format(uuidcode, unity.get(self.jscldap_token_url,{}).get('allowed_groups', [])))
                 if len(hpc_infos) != 0:
                     use_hdf_resources = True
                 else:
                     for group in resp_json.get(group_key, []):
                         if use_hdf_resources:
                             break
-                        for allowed_group in unity[self.jscldap_authorize_url].get('allowed_groups', []):
+                        for allowed_group in unity.get(self.jscldap_token_url,{}).get('allowed_groups', []):
                             if group.startswith(allowed_group):
                                 use_hdf_resources = True
                                 break
