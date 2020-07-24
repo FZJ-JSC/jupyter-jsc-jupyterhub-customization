@@ -699,7 +699,7 @@ class BaseAuthenticator(GenericOAuthenticator):
                           validate_cert=self.tls_verify)
         resp = await http_client.fetch(req)
         resp_json = json.loads(resp.body.decode('utf8', 'replace'))
-        self.log.debug("uuidcode={} - UserInfo: {}".format(uuidcode, resp_json))
+        #self.log.debug("uuidcode={} - UserInfo: {}".format(uuidcode, resp_json))
         username_key = unity[self.jscldap_authorize_url]['username_key']
 
         if not resp_json.get(username_key):
@@ -717,7 +717,7 @@ class BaseAuthenticator(GenericOAuthenticator):
         if not resp_json_exp.get(tokeninfo_exp_key):
             self.log.error("uuidcode={} - Tokeninfo contains no key {}: {}".format(uuidcode, tokeninfo_exp_key, self.remove_secret(resp_json_exp)))
             return
-        self.log.debug("uuidcode={} - TokenInfo: {}".format(uuidcode, resp_json_exp))
+        #self.log.debug("uuidcode={} - TokenInfo: {}".format(uuidcode, resp_json_exp))
         expire = str(resp_json_exp.get(tokeninfo_exp_key))
         username = resp_json.get(username_key).split('=')[1]
         username = self.normalize_username(username)
@@ -793,9 +793,7 @@ class BaseAuthenticator(GenericOAuthenticator):
         else:
             use_hdf_resources = True
         # Create a dictionary. So we only have to check for machines via UNICORE/X that are not known yet
-        self.log.debug("uuidcode={} - hpc_infos: {}".format(uuidcode, hpc_infos))
         user_accs = get_user_dic(hpc_infos, self.resources, self.unicore_infos)
-        self.log.debug("uuidcode={} - User_accs dic: {}".format(uuidcode, user_accs))
         # Check for HPC Systems in self.unicore
         waitforaccupdate = self.get_hpc_infos_via_unicorex(uuidcode, username, user_accs, accesstoken)
         return {
