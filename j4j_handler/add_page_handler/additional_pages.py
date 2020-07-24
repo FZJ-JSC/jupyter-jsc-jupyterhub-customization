@@ -76,18 +76,19 @@ class J4J_2FAAPIHandler(APIHandler):
                     token_url = os.environ.get('JSCUSERNAME_TOKEN_URL', '<no token url defined>')
                 elif auth_state.get('login_handler') == 'hdfaai':
                     token_url = os.environ.get('HDFAAI_TOKEN_URL', '<no token url defined>')
-                unity.get(token_url, {}).get('2FA')
-                self.log.debug("uuidcode={} - Remove User from Unity-JSC Resources".format(uuidcode))
                 cmd = ['ssh',
                        '-i',
-                       unity.get(token_url, {}).get('2FA').get('key', '<ssh_key_not_defined>'),
+                       unity.get(token_url, {}).get('2FA', {}).get('key', '<ssh_key_not_defined>'),
                        '-o',
                        'StrictHostKeyChecking=no',
                        '-o',
                        'UserKnownHostsFile=/dev/null',
-                       '{}@{}'.format(unity.get(token_url, {}).get('2FA').get('user', '<ssh_user_not_defined>'), unity.get(token_url, {}).get('2FA').get('host', '<ssh_hostname_not_defined>')),
+                       '{}@{}'.format(unity.get(token_url, {}).get('2FA', {}).get('user', '<ssh_user_not_defined>'), unity.get(token_url, {}).get('2FA', {}).get('host', '<ssh_hostname_not_defined>')),
                        'UID={}'.format(user.name)]
+                self.log.debug("uuidcode={} - Execute {}".format(uuidcode, ' '.join(cmd)))
                 subprocess.Popen(cmd)
+                self.set_header('Content-Type', 'text/plain')
+                self.set_status(204)
             except:
                 self.log.exception("Bugfix required")
                 self.set_status(500)
