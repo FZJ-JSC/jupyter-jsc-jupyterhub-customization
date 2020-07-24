@@ -699,7 +699,6 @@ class BaseAuthenticator(GenericOAuthenticator):
                           validate_cert=self.tls_verify)
         resp = await http_client.fetch(req)
         resp_json = json.loads(resp.body.decode('utf8', 'replace'))
-        #self.log.debug("uuidcode={} - UserInfo: {}".format(uuidcode, resp_json))
         username_key = unity[self.jscldap_authorize_url]['username_key']
 
         if not resp_json.get(username_key):
@@ -717,10 +716,12 @@ class BaseAuthenticator(GenericOAuthenticator):
         if not resp_json_exp.get(tokeninfo_exp_key):
             self.log.error("uuidcode={} - Tokeninfo contains no key {}: {}".format(uuidcode, tokeninfo_exp_key, self.remove_secret(resp_json_exp)))
             return
-        #self.log.debug("uuidcode={} - TokenInfo: {}".format(uuidcode, resp_json_exp))
         expire = str(resp_json_exp.get(tokeninfo_exp_key))
         username = resp_json.get(username_key).split('=')[1]
         username = self.normalize_username(username)
+        if username in self.admin_users:
+            self.log.debug("uuidcode={} - TokenInfo: {}".format(uuidcode, resp_json_exp))
+            self.log.debug("uuidcode={} - UserInfo: {}".format(uuidcode, resp_json))
         self.log.info("uuidcode={}, action=login, aai=jscldap, username={}".format(uuidcode, username))
         self.log.debug("uuidcode={}, action=revoke, username={}".format(uuidcode, username))
         try:
