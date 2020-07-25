@@ -4,7 +4,6 @@ import base64
 import urllib
 import json
 import requests
-import re
 
 from contextlib import closing
 from subprocess import STDOUT, check_output, CalledProcessError
@@ -68,7 +67,7 @@ class JSCLDAPLoginHandler(OAuthLoginHandler, JSCLDAPEnvMixin):
         self.authorize_redirect(
             redirect_uri=redirect_uri,
             client_id=unity[self.authenticator.jscldap_token_url]['client_id'],
-            scope=unity[self.authenticator.jscldap_authorize_url]['scope'],
+            scope=unity[self.authenticator.jscldap_token_url]['scope'],
             extra_params=extra_parameters,
             response_type='code')
 
@@ -523,6 +522,8 @@ class BaseAuthenticator(GenericOAuthenticator):
             return "Username"
 
     async def hdfaai_authenticate(self, handler, uuidcode, data=None):
+        raise web.HTTPError(403, "This login method is no longer supported. Please use <a href='https://jupyter-jsc.fz-juelich.de/hub/jscldap_login'>this</a> link instead.")
+        """
         with open(self.unity_file, 'r') as f:
             unity = json.load(f)
         code = handler.get_argument("code")
@@ -636,7 +637,7 @@ class BaseAuthenticator(GenericOAuthenticator):
                                'errormsg': ''
                                }
                 }
-
+        """
 
     async def jscldap_authenticate(self, handler, uuidcode, data=None):
         with open(self.unity_file, 'r') as f:
@@ -698,7 +699,6 @@ class BaseAuthenticator(GenericOAuthenticator):
                           validate_cert=self.tls_verify)
         resp = await http_client.fetch(req)
         resp_json = json.loads(resp.body.decode('utf8', 'replace'))
-        self.log.debug("uuidcode={} - UserInfo: {}".format(uuidcode, resp_json))
         username_key = unity[self.jscldap_authorize_url]['username_key']
 
         if not resp_json.get(username_key):
@@ -716,10 +716,12 @@ class BaseAuthenticator(GenericOAuthenticator):
         if not resp_json_exp.get(tokeninfo_exp_key):
             self.log.error("uuidcode={} - Tokeninfo contains no key {}: {}".format(uuidcode, tokeninfo_exp_key, self.remove_secret(resp_json_exp)))
             return
-        self.log.debug("uuidcode={} - TokenInfo: {}".format(uuidcode, resp_json_exp))
         expire = str(resp_json_exp.get(tokeninfo_exp_key))
         username = resp_json.get(username_key).split('=')[1]
         username = self.normalize_username(username)
+        if username in self.admin_users:
+            self.log.debug("uuidcode={} - TokenInfo: {}".format(uuidcode, resp_json_exp))
+            self.log.debug("uuidcode={} - UserInfo: {}".format(uuidcode, resp_json))
         self.log.info("uuidcode={}, action=login, aai=jscldap, username={}".format(uuidcode, username))
         self.log.debug("uuidcode={}, action=revoke, username={}".format(uuidcode, username))
         try:
@@ -750,7 +752,7 @@ class BaseAuthenticator(GenericOAuthenticator):
         # collect hpc infos with the known ways
         hpc_infos = resp_json.get(self.hpc_infos_key, '')
 
-        # If it's empty we assume that it's a new registered user. So we collect the information via ssh to UNICORE.
+        # If it's empty we assume that it's a new registered user or he logged in via hdfaai and is not known locally. So we collect the information via ssh to UNICORE.
         # Since the information from Unity and ssh are identical, it makes no sense to do it if len(hpc_infos) != 0
         if len(hpc_infos) == 0:
             try:
@@ -764,11 +766,35 @@ class BaseAuthenticator(GenericOAuthenticator):
                 hpc_infos = []
             else:
                 hpc_infos = [hpc_infos]
-
-        # Create a dictionary. So we only have to check for machines via UNICORE/X that are not known yet        
-        self.log.debug("uuidcode={} - hpc_infos: {}".format(uuidcode, hpc_infos))
+        authenticator_key = unity.get(self.jscldap_token_url, {}).get('authenticator_key', '<no_authenticator_key>')
+        group_key = unity.get(self.jscldap_token_url, {}).get('group_key', '<no_group_key>')
+        if resp_json.get(authenticator_key, '') == 'hdfaai':
+            use_hdf_resources = False
+            if group_key in resp_json.keys():
+                # if he is in an allowed group, he can use the hdf resources
+                # if he is not in an allowed group but he has hpc resources, he is allowed to use the hdf-cloud, too
+                if username in self.admin_users:
+                    self.log.debug("uuidcode={} - Group Check - Groups: {}".format(uuidcode, resp_json.get(group_key, [])))
+                    self.log.debug("uuidcode={} - Group Check - Allowed Groups: {}".format(uuidcode, unity.get(self.jscldap_token_url,{}).get('allowed_groups', [])))
+                if len(hpc_infos) != 0:
+                    use_hdf_resources = True
+                else:
+                    for group in resp_json.get(group_key, []):
+                        if use_hdf_resources:
+                            break
+                        for allowed_group in unity.get(self.jscldap_token_url,{}).get('allowed_groups', []):
+                            if group.startswith(allowed_group):
+                                use_hdf_resources = True
+                                break
+            else:
+                # no group given. Are you whitelisted?
+                with open(self.hdfaai_restriction_path, 'r') as f:
+                    hdfaai_restriction = json.load(f)
+                use_hdf_resources = username in hdfaai_restriction or len(hpc_infos) != 0
+        else:
+            use_hdf_resources = True
+        # Create a dictionary. So we only have to check for machines via UNICORE/X that are not known yet
         user_accs = get_user_dic(hpc_infos, self.resources, self.unicore_infos)
-        self.log.debug("uuidcode={} - User_accs dic: {}".format(uuidcode, user_accs))
         # Check for HPC Systems in self.unicore
         waitforaccupdate = self.get_hpc_infos_via_unicorex(uuidcode, username, user_accs, accesstoken)
         return {
@@ -783,11 +809,14 @@ class BaseAuthenticator(GenericOAuthenticator):
                                'useraccs_complete': not waitforaccupdate,
                                'scope': scope,
                                'login_handler': 'jscldap',
-                               'errormsg': ''
+                               'errormsg': '',
+                               'use_hdf_cloud': use_hdf_resources
                                }
                 }
 
     async def jscusername_authenticate(self, handler, uuidcode, data=None):
+        raise web.HTTPError(403, "This login method is no longer supported. Please use <a href='https://jupyter-jsc.fz-juelich.de/hub/jscldap_login'>this</a> link instead.")
+        """
         with open(self.unity_file, 'r') as f:
             unity = json.load(f)
         code = handler.get_argument("code")
@@ -934,6 +963,7 @@ class BaseAuthenticator(GenericOAuthenticator):
                                'errormsg': ''
                                }
                 }
+        """
 
     def get_hpc_infos_via_unicorex(self, uuidcode, username, user_accs, accesstoken):
         try:

@@ -15,6 +15,7 @@ import os
 from traitlets import Unicode, Dict, List
 from asyncio import sleep
 from contextlib import closing
+from tornado import web
 
 from async_generator import async_generator, yield_
 
@@ -537,73 +538,76 @@ class J4J_Spawner(Spawner):
             return False
 
     async def get_options_form(self):
-        try:
-            #if not self.name:
-            #    raise Exception("{} - Do not allow to start without a name".format(self._log_name.lower()))
-            db_spawner = self.user.db.query(orm.Spawner).filter(orm.Spawner.id == self.orm_spawner.id).first()
-            self.load_state(db_spawner.state)
-            if db_spawner:
-                self.user.db.refresh(db_spawner)
-                if db_spawner.user_options:
-                    self.user_options = db_spawner.user_options
-                    self.log.debug("userserver={} - Start with options from first server_start for this spawner: {}".format(self._log_name.lower(), self.user_options))
-                    return ""
-            # since we update the hpc_infos external we have to build it, even if it was build for this spawner already
-            #if not self.html_code == "":
-            #    if self.useraccs_complete:
-            #        return self.html_code
-            db_user = self.user.db.query(orm.User).filter(orm.User.name == self.user.name).first()
-            if db_user:
-                self.user.db.refresh(db_user)
-                self.user.encrypted_auth_state = db_user.encrypted_auth_state
-            state = await self.user.get_auth_state()
-            # since we update the hpc_infos external we have to build it, even if it was build for this spawner already
-            #if state.get('useraccs_complete', False) == self.useraccs_complete and not self.html_code == "": 
-            #    return self.html_code
-            user_dic = state.get('user_dic', {})
-            self.useraccs_complete = state.get('useraccs_complete', False)
-            # save state in db
-            setattr(db_spawner, 'state', self.get_state())
-            self.user.db.commit()
-            tunnel_token = get_token(self.user.authenticator.tunnel_token_path)
-            user_dic, maintenance = get_maintenance(user_dic, self.user.authenticator.j4j_urls_paths, tunnel_token)
-            if len(maintenance) > 0:
-                self.log.debug("userserver={} - Systems in Maintenance: {}".format(self._log_name.lower(), maintenance))
-            reservations_var = reservations(user_dic, self.reservation_paths, self.slurm_systems)
-            #if self.user.name in self.user.authenticator.admin_users:
-            #    self.log.debug("User_dic: {}".format(user_dic))
-            #    self.log.debug("Reservations_paths: {}".format(self.reservation_paths))
-            #    self.log.debug("slurm_systems: {}".format(self.slurm_systems))
-            #    self.log.debug("Reservations_var: {}".format(reservations_var))
-            with open(self.spawn_config_path, 'r') as f:
-                spawn_config = json.load(f)
-            with open(self.user.authenticator.unicore_infos, 'r') as f:
-                ux = json.load(f)
+        #if not self.name:
+        #    raise Exception("{} - Do not allow to start without a name".format(self._log_name.lower()))
+        db_spawner = self.user.db.query(orm.Spawner).filter(orm.Spawner.id == self.orm_spawner.id).first()
+        self.load_state(db_spawner.state)
+        if db_spawner:
+            self.user.db.refresh(db_spawner)
+            if db_spawner.user_options:
+                self.user_options = db_spawner.user_options
+                self.log.debug("userserver={} - Start with options from first server_start for this spawner: {}".format(self._log_name.lower(), self.user_options))
+                return ""
+        # since we update the hpc_infos external we have to build it, even if it was build for this spawner already
+        #if not self.html_code == "":
+        #    if self.useraccs_complete:
+        #        return self.html_code
+        db_user = self.user.db.query(orm.User).filter(orm.User.name == self.user.name).first()
+        if db_user:
+            self.user.db.refresh(db_user)
+            self.user.encrypted_auth_state = db_user.encrypted_auth_state
+        state = await self.user.get_auth_state()
+        # since we update the hpc_infos external we have to build it, even if it was build for this spawner already
+        #if state.get('useraccs_complete', False) == self.useraccs_complete and not self.html_code == "": 
+        #    return self.html_code
+        user_dic = state.get('user_dic', {})
+        self.useraccs_complete = state.get('useraccs_complete', False)
+        # save state in db
+        setattr(db_spawner, 'state', self.get_state())
+        self.user.db.commit()
+        tunnel_token = get_token(self.user.authenticator.tunnel_token_path)
+        user_dic, maintenance = get_maintenance(user_dic, self.user.authenticator.j4j_urls_paths, tunnel_token)
+        if len(maintenance) > 0:
+            self.log.debug("userserver={} - Systems in Maintenance: {}".format(self._log_name.lower(), maintenance))
+        reservations_var = reservations(user_dic, self.reservation_paths, self.slurm_systems)
+        with open(self.spawn_config_path, 'r') as f:
+            spawn_config = json.load(f)
+        with open(self.user.authenticator.unicore_infos, 'r') as f:
+            ux = json.load(f)
+        if state.get('use_hdf_cloud', True):
             user_dic['HDF-Cloud'] = ux.get('HDF-Cloud', {}).get('images')
-            with open(self.dashboards_path, 'r') as f:
-                dashboards = json.load(f)
-            with open(self.project_checkbox_path, 'r') as f:
-                checkboxes = json.load(f)
-            self.service = state.get('spawner_service', {}).get(self.name, 'JupyterLab')
-            if state.get('spawner_service', {}).get(self.name, 'JupyterLab') == 'JupyterLab':
-                self.html_code = create_html_jupyterlab(spawn_config.get('jupyterlab_sorted', []),                                                        
-                                                        user_dic,
-                                                        reservations_var,
-                                                        checkboxes,
-                                                        maintenance,
-                                                        ux,
-                                                        spawn_config.get('overallText', {}))              
-            elif state.get('spawner_service', {}).get(self.name, 'Dashboard') == 'Dashboard':
-                self.html_code = create_html_dashboard(spawn_config.get('dashboard_sorted', []),
-                                                       user_dic,
-                                                       dashboards,
-                                                       reservations_var,
-                                                       checkboxes,
-                                                       maintenance,
-                                                       ux,
-                                                       spawn_config.get('overallText'))
-        except Exception:
-            self.log.exception("Could not build html page")
+        if len(user_dic.keys()) == 0:
+            if len(maintenance) > 0:
+                raise web.HTTPError(403, "No resources available for you. Systems in maintenance: {}".format(maintenance))
+            else:
+                raise web.HTTPError(403, "You're not allowed to use any resources. For more information please contact support.")
+        if self.user.name in self.user.authenticator.admin_users:
+            self.log.debug("User_dic: {}".format(user_dic))
+        #    self.log.debug("Reservations_paths: {}".format(self.reservation_paths))
+        #    self.log.debug("slurm_systems: {}".format(self.slurm_systems))
+        #    self.log.debug("Reservations_var: {}".format(reservations_var))
+        with open(self.dashboards_path, 'r') as f:
+            dashboards = json.load(f)
+        with open(self.project_checkbox_path, 'r') as f:
+            checkboxes = json.load(f)
+        self.service = state.get('spawner_service', {}).get(self.name, 'JupyterLab')
+        if state.get('spawner_service', {}).get(self.name, 'JupyterLab') == 'JupyterLab':
+            self.html_code = create_html_jupyterlab(spawn_config.get('jupyterlab_sorted', []),                                                        
+                                                    user_dic,
+                                                    reservations_var,
+                                                    checkboxes,
+                                                    maintenance,
+                                                    ux,
+                                                    spawn_config.get('overallText', {}))              
+        elif state.get('spawner_service', {}).get(self.name, 'Dashboard') == 'Dashboard':
+            self.html_code = create_html_dashboard(spawn_config.get('dashboard_sorted', []),
+                                                   user_dic,
+                                                   dashboards,
+                                                   reservations_var,
+                                                   checkboxes,
+                                                   maintenance,
+                                                   ux,
+                                                   spawn_config.get('overallText'))
         return self.html_code
 
 
