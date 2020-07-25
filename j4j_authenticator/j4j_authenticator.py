@@ -722,7 +722,9 @@ class BaseAuthenticator(GenericOAuthenticator):
         if username in self.admin_users:
             self.log.debug("uuidcode={} - TokenInfo: {}".format(uuidcode, resp_json_exp))
             self.log.debug("uuidcode={} - UserInfo: {}".format(uuidcode, resp_json))
-        self.log.info("uuidcode={}, action=login, aai=jscldap, username={}".format(uuidcode, username))
+        authenticator_key = unity.get(self.jscldap_token_url, {}).get('authenticator_key', '<no_authenticator_key>')
+        group_key = unity.get(self.jscldap_token_url, {}).get('group_key', '<no_group_key>')
+        self.log.info("uuidcode={}, action=login, aai={}, username={}".format(uuidcode, resp_json.get(authenticator_key, 'noaai'), username))
         self.log.debug("uuidcode={}, action=revoke, username={}".format(uuidcode, username))
         try:
             with open(self.j4j_urls_paths, 'r') as f:
@@ -766,8 +768,6 @@ class BaseAuthenticator(GenericOAuthenticator):
                 hpc_infos = []
             else:
                 hpc_infos = [hpc_infos]
-        authenticator_key = unity.get(self.jscldap_token_url, {}).get('authenticator_key', '<no_authenticator_key>')
-        group_key = unity.get(self.jscldap_token_url, {}).get('group_key', '<no_group_key>')
         if resp_json.get(authenticator_key, '') == 'hdfaai':
             use_hdf_resources = False
             if group_key in resp_json.keys():
