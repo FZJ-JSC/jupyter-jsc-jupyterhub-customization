@@ -25,6 +25,15 @@ from jupyterhub.utils import maybe_future, admin_only
 
 from jupyterhub.metrics import RUNNING_SERVERS, SERVER_STOP_DURATION_SECONDS, ServerStopStatus
 
+class J4J_LogoffBaseHandler(BaseHandler):
+    # Layer between actual user visited page and /hub/logout. This ensures to update the jinja variables for the users javascript code
+    @web.authenticated
+    async def get(self):
+        user = self.current_user
+        html = self.render_template('logoff.html',
+                                    user=user)
+        self.finish(html)
+
 class J4J_LogOffAllAPIHandler(APIHandler, LogoutHandler):
     @admin_only
     async def delete(self):

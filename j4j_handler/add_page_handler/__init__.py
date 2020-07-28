@@ -8,3 +8,4 @@ from .additional_pages import J4J_2FAAPIHandler
 from .additional_pages import J4J_KernelHandler
 from .additional_pages import J4J_ProjectsHandler
 from .additional_pages import J4J_TestHandler
+from .additional_pages import J4J_LogoffBaseHandler
