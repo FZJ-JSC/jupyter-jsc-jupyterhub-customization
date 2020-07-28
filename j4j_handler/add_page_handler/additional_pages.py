@@ -21,9 +21,24 @@ from j4j_spawner.file_loads import get_token
 from jupyterhub.apihandlers.base import APIHandler
 from jupyterhub.handlers.base import BaseHandler
 from jupyterhub.handlers.login import LogoutHandler
-from jupyterhub.utils import maybe_future, admin_only
+from jupyterhub.utils import maybe_future, admin_only, url_path_join
 
 from jupyterhub.metrics import RUNNING_SERVERS, SERVER_STOP_DURATION_SECONDS, ServerStopStatus
+
+class J4J_LogoffBaseHandler(BaseHandler):
+    # Layer between actual user visited page and /hub/logout. This ensures to update the jinja variables for the users javascript code
+    @web.authenticated
+    async def get(self):
+        user = self.current_user
+        html = self.render_template('logoff.html',
+                                    user=user,
+                                    allow_named_servers=self.allow_named_servers,
+                                    named_server_limit_per_user=self.named_server_limit_per_user,
+                                    url_path_join=url_path_join,
+                                    # can't use user.spawners because the stop method of User pops named servers from user.spawners when they're stopped spawners=user._orm_spawners,
+                                    default_server=user.spawner,
+                                    spawnable_dic=user.authenticator.spawnable_dic.get(user.name, {}))
+        self.finish(html)
 
 class J4J_LogOffAllAPIHandler(APIHandler, LogoutHandler):
     @admin_only
