@@ -21,29 +21,21 @@ from j4j_spawner.file_loads import get_token
 from jupyterhub.apihandlers.base import APIHandler
 from jupyterhub.handlers.base import BaseHandler
 from jupyterhub.handlers.login import LogoutHandler
-from jupyterhub.utils import maybe_future, admin_only, url_path_join
+from jupyterhub.utils import maybe_future, admin_only, new_token
+from jupyterhub import orm
 
 from jupyterhub.metrics import RUNNING_SERVERS, SERVER_STOP_DURATION_SECONDS, ServerStopStatus
 
-class J4J_LogoffBaseHandler(BaseHandler):
-    # Layer between actual user visited page and /hub/logout. This ensures to update the jinja variables for the users javascript code
-    @web.authenticated
-    async def get(self):
-        user = self.current_user
-        html = self.render_template('logoff.html',
-                                    user=user,
-                                    allow_named_servers=self.allow_named_servers,
-                                    named_server_limit_per_user=self.named_server_limit_per_user,
-                                    url_path_join=url_path_join,
-                                    # can't use user.spawners because the stop method of User pops named servers from user.spawners when they're stopped spawners=user._orm_spawners,
-                                    default_server=user.spawner,
-                                    spawnable_dic=user.authenticator.spawnable_dic.get(user.name, {}))
-        self.finish(html)
 
 class J4J_LogOffAllAPIHandler(APIHandler, LogoutHandler):
     @admin_only
     async def delete(self):
-        #self.app.users
+        db_user_list = list(self.db.query(orm.User))
+        self.log.debug(db_user_list)
+        self.log.debug(self.app.users)
+        for db_user in db_user_list:
+            db_user.cookie_id = new_token()
+            db_user.db.commit()
         return
 
 class J4J_RemoveAccountBaseHandler(BaseHandler):
@@ -72,7 +64,90 @@ class J4J_RemoveAccountBaseHandler(BaseHandler):
         html = html.replace("<!-- TOTALSIZE -->", totalsize)
         self.finish(html)
 
+class J4J_2FAAPIHandler2(APIHandler):
+    @web.authenticated
+    async def delete(self):
+        user = self.current_user
+        if user:
+            try:
+                uuidcode = uuid.uuid4().hex
+                await user.authenticator.update_mem(user, uuidcode)
+                self.log.info("uuidcode={} - action=delete2faopt - Remove User from 2FA optional group: {}".format(uuidcode, user.name))
+                unity_path = os.environ.get('UNITY_FILE', '<no unity file path defined>')
+                with open(unity_path, 'r') as f:
+                    unity = json.load(f)
+                auth_state = await user.get_auth_state()
+                if auth_state.get('login_handler') == 'jscldap':
+                    token_url = os.environ.get('JSCLDAP_TOKEN_URL', '<no token url defined>')
+                elif auth_state.get('login_handler') == 'jscusername':
+                    token_url = os.environ.get('JSCUSERNAME_TOKEN_URL', '<no token url defined>')
+                elif auth_state.get('login_handler') == 'hdfaai':
+                    token_url = os.environ.get('HDFAAI_TOKEN_URL', '<no token url defined>')
+                cmd = ['ssh',
+                       '-i',
+                       unity.get(token_url, {}).get('2FADeactivate', {}).get('key', '<ssh_key_not_defined>'),
+                       '-o',
+                       'StrictHostKeyChecking=no',
+                       '-o',
+                       'UserKnownHostsFile=/dev/null',
+                       '{}@{}'.format(unity.get(token_url, {}).get('2FADeactivate', {}).get('user', '<ssh_user_not_defined>'), unity.get(token_url, {}).get('2FADeactivate', {}).get('host', '<ssh_hostname_not_defined>')),
+                       'UID={}'.format(user.name)]
+                self.log.debug("uuidcode={} - Execute {}".format(uuidcode, ' '.join(cmd)))
+                subprocess.Popen(cmd)
+                self.set_header('Content-Type', 'text/plain')
+                self.set_status(204)
+            except:
+                self.log.exception("Bugfix required")
+                self.set_status(500)
+                self.write("Something went wrong. Please contact support to deactivate two factor authentication.")
+                self.flush()
+        else:
+            self.set_header('Content-Type', 'text/plain')
+            self.set_status(404)
+            raise web.HTTPError(404, 'User not found. Please logout, login and try again. If this does not help contact support.')
+
 class J4J_2FAAPIHandler(APIHandler):
+    @web.authenticated
+    async def delete(self):
+        user = self.current_user
+        if user:
+            try:
+                uuidcode = uuid.uuid4().hex
+                await user.authenticator.update_mem(user, uuidcode)
+                self.log.info("uuidcode={} - action=delete2faopt - Remove User from 2FA optional group: {}".format(uuidcode, user.name))
+                unity_path = os.environ.get('UNITY_FILE', '<no unity file path defined>')
+                with open(unity_path, 'r') as f:
+                    unity = json.load(f)
+                auth_state = await user.get_auth_state()
+                if auth_state.get('login_handler') == 'jscldap':
+                    token_url = os.environ.get('JSCLDAP_TOKEN_URL', '<no token url defined>')
+                elif auth_state.get('login_handler') == 'jscusername':
+                    token_url = os.environ.get('JSCUSERNAME_TOKEN_URL', '<no token url defined>')
+                elif auth_state.get('login_handler') == 'hdfaai':
+                    token_url = os.environ.get('HDFAAI_TOKEN_URL', '<no token url defined>')
+                cmd = ['ssh',
+                       '-i',
+                       unity.get(token_url, {}).get('2FARemove', {}).get('key', '<ssh_key_not_defined>'),
+                       '-o',
+                       'StrictHostKeyChecking=no',
+                       '-o',
+                       'UserKnownHostsFile=/dev/null',
+                       '{}@{}'.format(unity.get(token_url, {}).get('2FARemove', {}).get('user', '<ssh_user_not_defined>'), unity.get(token_url, {}).get('2FARemove', {}).get('host', '<ssh_hostname_not_defined>')),
+                       'UID={}'.format(user.name)]
+                self.log.debug("uuidcode={} - Execute {}".format(uuidcode, ' '.join(cmd)))
+                subprocess.Popen(cmd)
+                self.set_header('Content-Type', 'text/plain')
+                self.set_status(204)
+            except:
+                self.log.exception("Bugfix required")
+                self.set_status(500)
+                self.write("Something went wrong. Please contact support to deactivate two factor authentication.")
+                self.flush()
+        else:
+            self.set_header('Content-Type', 'text/plain')
+            self.set_status(404)
+            raise web.HTTPError(404, 'User not found. Please logout, login and try again. If this does not help contact support.')
+
     @web.authenticated
     async def post(self):
         user = self.current_user
@@ -80,7 +155,7 @@ class J4J_2FAAPIHandler(APIHandler):
             try:
                 uuidcode = uuid.uuid4().hex
                 await user.authenticator.update_mem(user, uuidcode)
-                self.log.info("uuidcode={} - action=2faopt - Add User to 2FA optional group: {}".format(uuidcode, user.name))
+                self.log.info("uuidcode={} - action=add2faopt - Add User to 2FA optional group: {}".format(uuidcode, user.name))
                 unity_path = os.environ.get('UNITY_FILE', '<no unity file path defined>')
                 with open(unity_path, 'r') as f:
                     unity = json.load(f)

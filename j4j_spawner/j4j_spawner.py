@@ -377,6 +377,8 @@ class J4J_Spawner(Spawner):
                 del env['JUPYTERHUB_API_URL']
         else:
             env['hpcaccounts'] = state.get('oauth_user').get(self.user.authenticator.hpc_infos_key)
+        env['JUPYTERHUB_SESSION_ID_REQUIRED'] = os.getenv('JUPYTERHUB_SESSION_ID_REQUIRED', 'false').lower()
+        env['JUPYTERHUB_SESSION_ID_REQUIRED_USER'] = os.getenv('JUPYTERHUB_SESSION_ID_REQUIRED_USER', 'false').lower()
         self.hostname = socket.gethostname()
         #self.port = random_port()
 
