@@ -72,7 +72,7 @@ class J4J_2FAAPIHandler2(APIHandler):
             try:
                 uuidcode = uuid.uuid4().hex
                 await user.authenticator.update_mem(user, uuidcode)
-                self.log.info("uuidcode={} - action=delete2faopt - Remove User from 2FA optional group: {}".format(uuidcode, user.name))
+                self.log.info("uuidcode={} - action=deactivate2faopt - Remove User from 2FA optional group: {}".format(uuidcode, user.name))
                 unity_path = os.environ.get('UNITY_FILE', '<no unity file path defined>')
                 with open(unity_path, 'r') as f:
                     unity = json.load(f)
