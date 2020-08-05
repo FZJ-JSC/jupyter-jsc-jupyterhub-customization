@@ -281,7 +281,7 @@ class BaseAuthenticator(GenericOAuthenticator):
     )
     
     enable_auth_state = Bool(
-        os.environ.get('ENABLE_AUTH_STATE', False).lower() in {'true', '1'},
+        os.environ.get('ENABLE_AUTH_STATE', 'false').lower() in {'true', '1'},
         config=True,
         help="""Enable persisting auth_state (if available).
 
@@ -725,6 +725,7 @@ class BaseAuthenticator(GenericOAuthenticator):
         authenticator_key = unity.get(self.jscldap_token_url, {}).get('authenticator_key', '<no_authenticator_key>')
         group_key = unity.get(self.jscldap_token_url, {}).get('group_key', '<no_group_key>')
         self.log.info("uuidcode={}, action=login, aai={}, username={}".format(uuidcode, resp_json.get(authenticator_key, 'noaai'), username))
+        """
         self.log.debug("uuidcode={}, action=revoke, username={}".format(uuidcode, username))
         try:
             with open(self.j4j_urls_paths, 'r') as f:
@@ -750,7 +751,7 @@ class BaseAuthenticator(GenericOAuthenticator):
                     self.log.warning("uuidcode={} - Failed J4J_Orchestrator communication: {} {}".format(uuidcode, r.text, r.status_code))
         except:
             self.log.exception("uuidcode={} - Could not revoke old tokens for {}".format(uuidcode, username))
-
+        """
         # collect hpc infos with the known ways
         hpc_infos = resp_json.get(self.hpc_infos_key, '')
 
