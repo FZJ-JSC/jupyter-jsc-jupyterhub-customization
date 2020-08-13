@@ -273,13 +273,25 @@ class BaseAuthenticator(GenericOAuthenticator):
         config = True,
         help = "Path to all reservations"
     )
-    
+
     dashboards_path = Unicode(
         os.environ.get("DASHBOARDS_PATH", ""),
         config = True,
         help = "Path to dashboards infos"
     )
-    
+
+    database_json_path = Unicode(
+        os.environ.get("DATABASE_JSON_PATH", ""),
+        config = True,
+        help = "Path to database infos"
+    )
+
+    send2fa_config_path = Unicode(
+        os.environ.get("SEND2FA_JSON_PATH", ""),
+        config = True,
+        help = "Path to 2FA mail infos"
+    )
+
     enable_auth_state = Bool(
         os.environ.get('ENABLE_AUTH_STATE', 'false').lower() in {'true', '1'},
         config=True,
