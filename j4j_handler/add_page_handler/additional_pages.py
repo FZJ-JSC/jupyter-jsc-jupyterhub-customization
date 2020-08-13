@@ -265,7 +265,7 @@ class J4J_2FAAPIHandler(APIHandler):
                    user.name,
                    code,
                    unit,
-                   value]
+                   str(value)]
             subprocess.Popen(cmd)
             self.set_status(204)
 
