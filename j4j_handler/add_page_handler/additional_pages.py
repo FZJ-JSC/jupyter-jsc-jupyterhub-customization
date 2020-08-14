@@ -296,6 +296,19 @@ class J4J_2FAAPIHandler(APIHandler):
                        'UID={}'.format(user.name)]
                 self.log.debug("uuidcode={} - Execute {}".format(uuidcode, ' '.join(cmd)))
                 subprocess.Popen(cmd)
+                if os.environ.get('2FASENDADMINMAIL').lower() == 'true':
+                    send2fa_config_path = user.authenticator.send2fa_config_path
+                    with open(send2fa_config_path, 'r') as f:
+                        send2fa_config = json.load(f)
+                    if 'adminremovescript' not in send2fa_config.keys() or 'python3' not in send2fa_config.keys():
+                        self.log.error("adminremovescript or python3 not defined in {}".format(send2fa_config_path))
+                        self.set_status(204)
+                    else:
+                        cmd = [send2fa_config.get('python3'),
+                               send2fa_config.get('adminremovescript'),
+                               user.name]
+                        subprocess.Popen(cmd)
+                        self.set_status(204)
                 self.set_header('Content-Type', 'text/plain')
                 self.set_status(204)
             except:
