@@ -7,13 +7,14 @@ Created on May 10, 2019
 import asyncio
 import json
 import os
+import psycopg2
 import requests
 import subprocess
 import time
 import uuid
 
 from contextlib import closing
-from datetime import timedelta
+from datetime import datetime, timedelta
 from tornado import gen, web
 
 from j4j_spawner.file_loads import get_token
@@ -25,6 +26,8 @@ from jupyterhub.utils import maybe_future, admin_only, new_token
 from jupyterhub import orm
 
 from jupyterhub.metrics import RUNNING_SERVERS, SERVER_STOP_DURATION_SECONDS, ServerStopStatus
+from jupyterhub.apihandlers.users import admin_or_self
+
 
 
 class J4J_LogOffAllAPIHandler(APIHandler, LogoutHandler):
@@ -63,131 +66,6 @@ class J4J_RemoveAccountBaseHandler(BaseHandler):
         html = html.replace("<!-- TOTALFILES -->", totalfiles)
         html = html.replace("<!-- TOTALSIZE -->", totalsize)
         self.finish(html)
-
-class J4J_2FAAPIHandler2(APIHandler):
-    @web.authenticated
-    async def delete(self):
-        user = self.current_user
-        if user:
-            try:
-                uuidcode = uuid.uuid4().hex
-                await user.authenticator.update_mem(user, uuidcode)
-                self.log.info("uuidcode={} - action=deactivate2faopt - Remove User from 2FA optional group: {}".format(uuidcode, user.name))
-                unity_path = os.environ.get('UNITY_FILE', '<no unity file path defined>')
-                with open(unity_path, 'r') as f:
-                    unity = json.load(f)
-                auth_state = await user.get_auth_state()
-                if auth_state.get('login_handler') == 'jscldap':
-                    token_url = os.environ.get('JSCLDAP_TOKEN_URL', '<no token url defined>')
-                elif auth_state.get('login_handler') == 'jscusername':
-                    token_url = os.environ.get('JSCUSERNAME_TOKEN_URL', '<no token url defined>')
-                elif auth_state.get('login_handler') == 'hdfaai':
-                    token_url = os.environ.get('HDFAAI_TOKEN_URL', '<no token url defined>')
-                cmd = ['ssh',
-                       '-i',
-                       unity.get(token_url, {}).get('2FADeactivate', {}).get('key', '<ssh_key_not_defined>'),
-                       '-o',
-                       'StrictHostKeyChecking=no',
-                       '-o',
-                       'UserKnownHostsFile=/dev/null',
-                       '{}@{}'.format(unity.get(token_url, {}).get('2FADeactivate', {}).get('user', '<ssh_user_not_defined>'), unity.get(token_url, {}).get('2FADeactivate', {}).get('host', '<ssh_hostname_not_defined>')),
-                       'UID={}'.format(user.name)]
-                self.log.debug("uuidcode={} - Execute {}".format(uuidcode, ' '.join(cmd)))
-                subprocess.Popen(cmd)
-                self.set_header('Content-Type', 'text/plain')
-                self.set_status(204)
-            except:
-                self.log.exception("Bugfix required")
-                self.set_status(500)
-                self.write("Something went wrong. Please contact support to deactivate two factor authentication.")
-                self.flush()
-        else:
-            self.set_header('Content-Type', 'text/plain')
-            self.set_status(404)
-            raise web.HTTPError(404, 'User not found. Please logout, login and try again. If this does not help contact support.')
-
-class J4J_2FAAPIHandler(APIHandler):
-    @web.authenticated
-    async def delete(self):
-        user = self.current_user
-        if user:
-            try:
-                uuidcode = uuid.uuid4().hex
-                await user.authenticator.update_mem(user, uuidcode)
-                self.log.info("uuidcode={} - action=delete2faopt - Remove User from 2FA optional group: {}".format(uuidcode, user.name))
-                unity_path = os.environ.get('UNITY_FILE', '<no unity file path defined>')
-                with open(unity_path, 'r') as f:
-                    unity = json.load(f)
-                auth_state = await user.get_auth_state()
-                if auth_state.get('login_handler') == 'jscldap':
-                    token_url = os.environ.get('JSCLDAP_TOKEN_URL', '<no token url defined>')
-                elif auth_state.get('login_handler') == 'jscusername':
-                    token_url = os.environ.get('JSCUSERNAME_TOKEN_URL', '<no token url defined>')
-                elif auth_state.get('login_handler') == 'hdfaai':
-                    token_url = os.environ.get('HDFAAI_TOKEN_URL', '<no token url defined>')
-                cmd = ['ssh',
-                       '-i',
-                       unity.get(token_url, {}).get('2FARemove', {}).get('key', '<ssh_key_not_defined>'),
-                       '-o',
-                       'StrictHostKeyChecking=no',
-                       '-o',
-                       'UserKnownHostsFile=/dev/null',
-                       '{}@{}'.format(unity.get(token_url, {}).get('2FARemove', {}).get('user', '<ssh_user_not_defined>'), unity.get(token_url, {}).get('2FARemove', {}).get('host', '<ssh_hostname_not_defined>')),
-                       'UID={}'.format(user.name)]
-                self.log.debug("uuidcode={} - Execute {}".format(uuidcode, ' '.join(cmd)))
-                subprocess.Popen(cmd)
-                self.set_header('Content-Type', 'text/plain')
-                self.set_status(204)
-            except:
-                self.log.exception("Bugfix required")
-                self.set_status(500)
-                self.write("Something went wrong. Please contact support to deactivate two factor authentication.")
-                self.flush()
-        else:
-            self.set_header('Content-Type', 'text/plain')
-            self.set_status(404)
-            raise web.HTTPError(404, 'User not found. Please logout, login and try again. If this does not help contact support.')
-
-    @web.authenticated
-    async def post(self):
-        user = self.current_user
-        if user:
-            try:
-                uuidcode = uuid.uuid4().hex
-                await user.authenticator.update_mem(user, uuidcode)
-                self.log.info("uuidcode={} - action=add2faopt - Add User to 2FA optional group: {}".format(uuidcode, user.name))
-                unity_path = os.environ.get('UNITY_FILE', '<no unity file path defined>')
-                with open(unity_path, 'r') as f:
-                    unity = json.load(f)
-                auth_state = await user.get_auth_state()
-                if auth_state.get('login_handler') == 'jscldap':
-                    token_url = os.environ.get('JSCLDAP_TOKEN_URL', '<no token url defined>')
-                elif auth_state.get('login_handler') == 'jscusername':
-                    token_url = os.environ.get('JSCUSERNAME_TOKEN_URL', '<no token url defined>')
-                elif auth_state.get('login_handler') == 'hdfaai':
-                    token_url = os.environ.get('HDFAAI_TOKEN_URL', '<no token url defined>')
-                cmd = ['ssh',
-                       '-i',
-                       unity.get(token_url, {}).get('2FA', {}).get('key', '<ssh_key_not_defined>'),
-                       '-o',
-                       'StrictHostKeyChecking=no',
-                       '-o',
-                       'UserKnownHostsFile=/dev/null',
-                       '{}@{}'.format(unity.get(token_url, {}).get('2FA', {}).get('user', '<ssh_user_not_defined>'), unity.get(token_url, {}).get('2FA', {}).get('host', '<ssh_hostname_not_defined>')),
-                       'UID={}'.format(user.name)]
-                self.log.debug("uuidcode={} - Execute {}".format(uuidcode, ' '.join(cmd)))
-                subprocess.Popen(cmd)
-                self.set_header('Content-Type', 'text/plain')
-                self.set_status(204)
-            except:
-                self.log.exception("Bugfix required")
-                self.set_status(500)
-                self.write("Something went wrong. Please contact support to activate two factor authentication.")
-                self.flush()
-        else:
-            self.set_header('Content-Type', 'text/plain')
-            self.set_status(404)
-            raise web.HTTPError(404, 'User not found. Please logout, login and try again. If this does not help contact support.')
 
 class J4J_RemoveAccountAPIHandler(APIHandler, LogoutHandler):
     @web.authenticated
@@ -324,6 +202,230 @@ class J4J_2FAHandler(BaseHandler):
                     '2FA.html',
                     user=user)
         self.finish(html)
+
+class J4J_2FAAPIHandler(APIHandler):
+    @admin_or_self
+    async def post(self, name):
+        user = self.current_user
+        if user is None:
+            raise web.HTTPError(403)
+        if user.name != name:
+            raise web.HTTPError(403)
+        uuidcode = uuid.uuid4().hex
+        await user.authenticator.update_mem(user, uuidcode)
+        self.log.info("uuidcode={} - action=request2fa - Remove User from 2FA optional group: {}".format(uuidcode, user.name))
+        send2fa_config_path = user.authenticator.send2fa_config_path
+        with open(send2fa_config_path, 'r') as f:
+            send2fa_config = json.load(f)
+        code = uuid.uuid4().hex
+        generated = datetime.now()
+        unit = ''
+        value = ''
+        if send2fa_config.get('timedelta', {}).get('unit', 'default') == 'default' or send2fa_config.get('timedelta', {}).get('unit', 'default') == 'hours':
+            expired = generated + timedelta(hours=send2fa_config.get('timedelta', {}).get('value', 2))
+            unit = 'hours'
+            value = send2fa_config.get('timedelta', {}).get('value', 2)
+        elif send2fa_config.get('timedelta', {}).get('unit', 'default') == 'days':
+            expired = generated + timedelta(days=send2fa_config.get('timedelta', {}).get('value', 1))
+            unit = 'days'
+            value = send2fa_config.get('timedelta', {}).get('value', 1)
+        elif send2fa_config.get('timedelta', {}).get('unit', 'default') == 'minutes':
+            expired = generated + timedelta(minutes=send2fa_config.get('timedelta', {}).get('value', 30))
+            unit = 'minutes'
+            value = send2fa_config.get('timedelta', {}).get('value', 30)
+        else:
+            expired = generated + timedelta(hours=2)
+            unit = 'hours'
+            value = 2
+        generated_s = generated.strftime('%Y-%m-%d-%H:%M:%S')
+        expired_s = expired.strftime('%Y-%m-%d-%H:%M:%S')
+        path = user.authenticator.database_json_path
+        with open(path, 'r') as f:
+            database = json.load(f)
+        with closing(psycopg2.connect(host=database.get('host'),
+                                      port=database.get('port'),
+                                      user=database.get('user'),
+                                      password=database.get('password'),
+                                      database=database.get('database'))) as con: # auto closes
+            with closing(con.cursor()) as cur: # auto closes
+                with con: # auto commit
+                    cmd = "INSERT INTO send2fa (username, code, generated, expired) VALUES (%s, %s, %s, %s)"
+                    self.log.info("Execute: {}".format(cmd))
+                    cur.execute(cmd, (name,
+                                      code,
+                                      generated_s,
+                                      expired_s
+                                      ))
+        if 'script' not in send2fa_config.keys() or 'python3' not in send2fa_config.keys():
+            self.log.error("script or python3 not defined in {}".format(send2fa_config_path))
+            self.set_status(500)
+        else:
+            cmd = [send2fa_config.get('python3'),
+                   send2fa_config.get('script'),
+                   user.name,
+                   code,
+                   unit,
+                   str(value)]
+            subprocess.Popen(cmd)
+            self.set_status(204)
+
+    @admin_or_self
+    async def delete(self, name):
+        user = self.current_user
+        if user is None:
+            raise web.HTTPError(403)
+        if user.name != name:
+            raise web.HTTPError(403)
+        if user:
+            try:
+                uuidcode = uuid.uuid4().hex
+                await user.authenticator.update_mem(user, uuidcode)
+                self.log.info("uuidcode={} - action=delete2faopt - Remove User from 2FA optional group: {}".format(uuidcode, user.name))
+                unity_path = os.environ.get('UNITY_FILE', '<no unity file path defined>')
+                with open(unity_path, 'r') as f:
+                    unity = json.load(f)
+                token_url = os.environ.get('JSCLDAP_TOKEN_URL', '<no token url defined>')
+                cmd = ['ssh',
+                       '-i',
+                       unity.get(token_url, {}).get('2FARemove', {}).get('key', '<ssh_key_not_defined>'),
+                       '-o',
+                       'StrictHostKeyChecking=no',
+                       '-o',
+                       'UserKnownHostsFile=/dev/null',
+                       '{}@{}'.format(unity.get(token_url, {}).get('2FARemove', {}).get('user', '<ssh_user_not_defined>'), unity.get(token_url, {}).get('2FARemove', {}).get('host', '<ssh_hostname_not_defined>')),
+                       'UID={}'.format(user.name)]
+                self.log.debug("uuidcode={} - Execute {}".format(uuidcode, ' '.join(cmd)))
+                subprocess.Popen(cmd)
+                if os.environ.get('2FASENDADMINMAIL', 'true').lower() == 'true':
+                    send2fa_config_path = user.authenticator.send2fa_config_path
+                    with open(send2fa_config_path, 'r') as f:
+                        send2fa_config = json.load(f)
+                    if 'adminremovescript' not in send2fa_config.keys() or 'python3' not in send2fa_config.keys():
+                        self.log.error("adminremovescript or python3 not defined in {}".format(send2fa_config_path))
+                        self.set_status(204)
+                    else:
+                        cmd = [send2fa_config.get('python3'),
+                               send2fa_config.get('adminremovescript'),
+                               user.name]
+                        subprocess.Popen(cmd)
+                        self.set_status(204)
+                self.set_header('Content-Type', 'text/plain')
+                self.set_status(204)
+            except:
+                self.log.exception("Bugfix required")
+                self.set_status(500)
+                self.write("Something went wrong. Please contact support to deactivate two factor authentication.")
+                self.flush()
+        else:
+            self.set_header('Content-Type', 'text/plain')
+            self.set_status(404)
+            raise web.HTTPError(404, 'User not found. Please logout, login and try again. If this does not help contact support.')
+
+
+class J4J_2FACodeHandler(BaseHandler):
+    @web.authenticated
+    async def get(self, code):
+        uuidcode = uuid.uuid4().hex
+        user = self.current_user
+        self.log.info("uuidcode={} - action=activate2facode - user={}".format(uuidcode, user.name))
+        await user.authenticator.update_mem(user, uuidcode)
+        path = user.authenticator.database_json_path
+        with open(path, 'r') as f:
+            database = json.load(f)
+        with closing(psycopg2.connect(host=database.get('host'),
+                                      port=database.get('port'),
+                                      user=database.get('user'),
+                                      password=database.get('password'),
+                                      database=database.get('database'))) as con: # auto closes
+            with closing(con.cursor()) as cur: # auto closes
+                with con: # auto commit
+                    cmd = "SELECT generated, expired FROM send2fa WHERE code = %s AND username = %s"
+                    self.log.debug("uuidcode={} - Execute: {}".format(uuidcode, cmd))
+                    cur.execute(cmd, (code, user.name))
+                    results = cur.fetchall()
+        if len(results) > 1:
+            self.log.error("uuidcode={} - Code {} is more than once in the database".format(uuidcode, code))
+            html = self.render_template(
+                    '2FA.html',
+                    user=user,
+                    code=True,
+                    code_success=False,
+                    code_header="2FA activation failed",
+                    code_text="Please contact support to activate 2-Factor Authentication.")
+            self.finish(html)
+            return
+        if len(results) == 0:
+            self.log.error("uuidcode={} - There is no such token {}".format(uuidcode, code))
+            html = self.render_template(
+                    '2FA.html',
+                    user=user,
+                    code=True,
+                    code_success=False,
+                    code_header="2FA activation failed",
+                    code_text="Please contact support to activate 2-Factor Authentication.")
+            self.finish(html)
+            return
+        with closing(psycopg2.connect(host=database.get('host'),
+                                      port=database.get('port'),
+                                      user=database.get('user'),
+                                      password=database.get('password'),
+                                      database=database.get('database'))) as con: # auto closes
+            with closing(con.cursor()) as cur: # auto closes
+                with con: # auto commit
+                    cmd = "DELETE FROM send2fa WHERE code = %s AND username = %s"
+                    self.log.debug("uuidcode={} - Execute: {}".format(uuidcode, cmd))
+                    cur.execute(cmd, (code, user.name))
+        expired_s = results[0][1]
+        expired = datetime.strptime(expired_s, '%Y-%m-%d-%H:%M:%S')
+        if expired > datetime.now():
+            try:
+                self.log.debug("uuidcode={} - Add user to 2FA group in unity".format(uuidcode))
+                unity_path = user.authenticator.unity_file
+                with open(unity_path, 'r') as f:
+                    unity = json.load(f)
+                token_url = os.environ.get('JSCLDAP_TOKEN_URL', '<no token url defined>')
+                cmd = ['ssh',
+                       '-i',
+                       unity.get(token_url, {}).get('2FA', {}).get('key', '<ssh_key_not_defined>'),
+                       '-o',
+                       'StrictHostKeyChecking=no',
+                       '-o',
+                       'UserKnownHostsFile=/dev/null',
+                       '{}@{}'.format(unity.get(token_url, {}).get('2FA', {}).get('user', '<ssh_user_not_defined>'), unity.get(token_url, {}).get('2FA', {}).get('host', '<ssh_hostname_not_defined>')),
+                       'UID={}'.format(user.name)]
+                self.log.debug("uuidcode={} - Execute {}".format(uuidcode, ' '.join(cmd)))
+                subprocess.Popen(cmd)
+                html = self.render_template(
+                        '2FA.html',
+                        user=user,
+                        code=True,
+                        code_success=True,
+                        code_header="2FA activation successful",
+                        code_text="You'll be able to add a second factor the next time you log in.")
+                self.finish(html)
+                return
+            except:
+                self.log.exception("uuidcode={} - Unknown Error in Code2FA".format(uuidcode))
+                html = self.render_template(
+                        '2FA.html',
+                        user=user,
+                        code=True,
+                        code_success=False,
+                        code_header="2FA activation failed",
+                        code_text="Please contact support to activate 2-Factor Authentication.")
+                self.finish(html)
+                return
+        else:
+            self.log.error("uuidcode={} - Expired code. Now: {} - Expired: {}".format(uuidcode, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), expired.strftime('%Y-%m-%d %H:%M:%S')))
+            html = self.render_template(
+                    '2FA.html',
+                    user=user,
+                    code=True,
+                    code_success=False,
+                    code_header="2FA activation failed",
+                    code_text="The link is expired since {}. Please request a new one.".format(expired.strftime('%Y-%m-%d %H:%M:%S')))
+            self.finish(html)
+            return
 
 class J4J_TestHandler(BaseHandler):
     async def get(self):
