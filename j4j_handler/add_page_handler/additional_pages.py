@@ -296,7 +296,7 @@ class J4J_2FAAPIHandler(APIHandler):
                        'UID={}'.format(user.name)]
                 self.log.debug("uuidcode={} - Execute {}".format(uuidcode, ' '.join(cmd)))
                 subprocess.Popen(cmd)
-                if os.environ.get('2FASENDADMINMAIL').lower() == 'true':
+                if os.environ.get('2FASENDADMINMAIL', 'true').lower() == 'true':
                     send2fa_config_path = user.authenticator.send2fa_config_path
                     with open(send2fa_config_path, 'r') as f:
                         send2fa_config = json.load(f)
