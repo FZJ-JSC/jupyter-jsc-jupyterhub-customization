@@ -195,7 +195,6 @@ class J4J_ImprintHandler(BaseHandler):
         self.finish(html)
 
 class J4J_2FAHandler(BaseHandler):
-    @web.authenticated
     async def get(self):
         user = self.current_user
         html = self.render_template(
