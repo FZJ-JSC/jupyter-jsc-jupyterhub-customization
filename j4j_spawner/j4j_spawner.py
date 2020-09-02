@@ -388,6 +388,7 @@ class J4J_Spawner(Spawner):
                                            state.get('refreshtoken'),
                                            env['JUPYTERHUB_API_TOKEN'],
                                            state.get('accesstoken'),
+                                           state.get('servicelevel', 'default'),
                                            self.account,
                                            self.project,
                                            self._log_name.lower(),
@@ -404,7 +405,35 @@ class J4J_Spawner(Spawner):
                                        self.system,
                                        self.user_options.get('Checkboxes', []))
         self.login_handler = state.get('login_handler', '')
-
+        # Last check for service levels: are you even allowed to do this? (Maybe permission has changed?)
+        try:
+            with open(self.user.authenticator.resources, 'r') as f:
+                resources_json = json.load(f)
+            for resource_infos in resources_json.values():
+                if resource_infos.get('service_levels_only', False):
+                    # Resources are reserved for specific user group
+                    if resource_infos.get('require_active_service_level', False):
+                        # You have to choose it manually to gain resource
+                        servicelevel_tmp = state.get('servicelevel', 'default')
+                        if servicelevel_tmp[-6:] == "_admin":
+                            servicelevel_tmp = servicelevel_tmp[:-6]
+                        if servicelevel_tmp not in resource_infos.get('service_levels', []):
+                            # You've chosen a service level which is NOT part of this resource
+                            self.log.info("uuidcode={} - Start not allowed. Service Level: {} , resources allowed service_levels: {}".format(uuidcode, state.get('servicelevel','default'), resource_infos.get('service_levels', [])))
+                            raise Exception("You've not chosen the required service level. Please activate it first, by clicking on \"Service levels\" at the Control Panel.")
+                    else:
+                        # You have to be part of one the service levels to gain access to this resource
+                        resource_allowed = False
+                        for user_service_level in state.get('servicelevel_list', []):
+                            for resource_service_level in resource_infos.get('service_levels', []):
+                                if user_service_level == resource_service_level or user_service_level == "{}_admin".format(resource_service_level):
+                                    resource_allowed = True
+                                    break
+                        if not resource_allowed:
+                            self.log.info("uuidcode={} - Start not allowed. User Service Levels: {} , resources allowed service_levels: {}".format(uuidcode, state.get('servicelevel_list','default'), resource_infos.get('service_levels', [])))
+                            raise Exception("You're not part of the required service levels. Please contact support, if you think that this is wrong")
+        except:
+            self.log.exception("uuidcode={} - Could not check for service level policy. Because it is in a DEBUG state right now, we'll just allow anything.".format(uuidcode))
         try:
             with open(self.user.authenticator.j4j_urls_paths, 'r') as f:
                 urls = json.load(f)
@@ -592,6 +621,35 @@ class J4J_Spawner(Spawner):
             dashboards = json.load(f)
         with open(self.project_checkbox_path, 'r') as f:
             checkboxes = json.load(f)
+        # Remove Resources, which are only for specific service levels
+        try:
+            with open(self.user.authenticator.resources, 'r') as f:
+                resources_json = json.load(f)
+            for name, resource_infos in resources_json.items():
+                if resource_infos.get('service_levels_only', False):
+                    # Resources are reserved for specific user group
+                    if resource_infos.get('require_active_service_level', False):
+                        # You have to choose it manually to gain resource
+                        servicelevel_tmp = state.get('servicelevel', 'default')
+                        if servicelevel_tmp[-6:] == "_admin":
+                            servicelevel_tmp = servicelevel_tmp[:-6]
+                        if servicelevel_tmp not in resource_infos.get('service_levels', []):
+                            # You've chosen a service level which is NOT part of this resource
+                            if name in user_dic.keys():
+                                del user_dic[name]
+                    else:
+                        # You have to be part of one the service levels to gain access to this resource
+                        resource_allowed = False
+                        for user_service_level in state.get('servicelevel_list', []):
+                            for resource_service_level in resource_infos.get('service_levels', []):
+                                if user_service_level == resource_service_level or user_service_level == "{}_admin".format(resource_service_level):
+                                    resource_allowed = True
+                                    break
+                        if not resource_allowed:
+                            if name in user_dic.keys():
+                                del user_dic[name]
+        except:
+            self.log.exception("userserver=={} - Could not check for service level resources. Show all resources.".format(self._log_name.lower()))
         self.service = state.get('spawner_service', {}).get(self.name, 'JupyterLab')
         if state.get('spawner_service', {}).get(self.name, 'JupyterLab') == 'JupyterLab':
             self.html_code = create_html_jupyterlab(spawn_config.get('jupyterlab_sorted', []),                                                        

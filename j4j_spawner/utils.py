@@ -7,7 +7,7 @@ from contextlib import closing
 from .file_loads import get_token
 import base64
 
-def create_spawn_header(uuidcode, expire, refreshtoken, jhubtoken, accesstoken, account, project, servername, escapedusername, orchestrator_token_path, login_handler):
+def create_spawn_header(uuidcode, expire, refreshtoken, jhubtoken, accesstoken, servicelevel, account, project, servername, escapedusername, orchestrator_token_path, login_handler):
     spawn_header = {
         "uuidcode": uuidcode,
         "Intern-Authorization": get_token(orchestrator_token_path),
@@ -15,6 +15,7 @@ def create_spawn_header(uuidcode, expire, refreshtoken, jhubtoken, accesstoken, 
         "refreshtoken": refreshtoken,
         "jhubtoken": jhubtoken,
         "accesstoken": accesstoken,
+        "servicelevel": servicelevel,
         "account": account,
         "project": project,
         "Content-Type": "application/json",

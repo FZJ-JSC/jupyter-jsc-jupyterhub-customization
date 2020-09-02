@@ -286,6 +286,12 @@ class BaseAuthenticator(GenericOAuthenticator):
         help = "Path to database infos"
     )
 
+    service_level_json_path = Unicode(
+        os.environ.get("SERVICE_LEVEL_JSON_PATH", ""),
+        config = True,
+        help = "Path to service level infos"
+    )
+
     send2fa_config_path = Unicode(
         os.environ.get("SEND2FA_JSON_PATH", ""),
         config = True,
@@ -806,6 +812,27 @@ class BaseAuthenticator(GenericOAuthenticator):
                 use_hdf_resources = username in hdfaai_restriction or len(hpc_infos) != 0
         else:
             use_hdf_resources = True
+        # Check for different service levels for this specific user:
+        service_level_list = ['default']
+        service_level_default = 'default'
+        try:
+            with open(self.service_level_json_path, 'r') as f:
+                service_level_json = json.load(f)
+            for user_group in resp_json.get(group_key, []):
+                for name, service_level_infos in service_level_json.items():
+                    if user_group in service_level_infos.get('unity_groups', []):
+                        if username in service_level_infos.get('admins', []):
+                            servicename = "{}_admin".format(name)
+                        else:
+                            servicename = name
+                        # The user will be part of this service level
+                        if service_level_infos.get('priority', 1) >= service_level_json.get(service_level_list[0], {}).get('priority', 0) or len(service_level_list) == 1:
+                            service_level_default = servicename
+                        service_level_list.insert(0, servicename)
+        except:
+            self.log.exception("uuidcode={} - Could not check for service levels. Use default ones.".format(uuidcode))
+            service_level_list = ['default']
+            service_level_default = 'default'
         # Create a dictionary. So we only have to check for machines via UNICORE/X that are not known yet
         user_accs = get_user_dic(hpc_infos, self.resources, self.unicore_infos)
         # Check for HPC Systems in self.unicore
@@ -823,6 +850,8 @@ class BaseAuthenticator(GenericOAuthenticator):
                                'scope': scope,
                                'login_handler': 'jscldap',
                                'errormsg': '',
+                               'servicelevel': service_level_default,
+                               'servicelevel_list': service_level_list,
                                'use_hdf_cloud': use_hdf_resources
                                }
                 }

@@ -29,7 +29,50 @@ from jupyterhub.metrics import RUNNING_SERVERS, SERVER_STOP_DURATION_SECONDS, Se
 from jupyterhub.apihandlers.users import admin_or_self
 
 
-
+class J4J_ServiceLevelBaseHandler(BaseHandler):
+    @web.authenticated
+    async def get(self):
+        user = self.current_user
+        state = await user.get_auth_state()
+        servicelevel = state.get('servicelevel', 'default')
+        if servicelevel[-6:] == "_admin":
+            servicelevel = servicelevel[:-6]
+        servicelevellist = state.get('servicelevel_list', ['default'])
+        with open(user.authenticator.service_level_json_path, 'r') as f:
+            servicelevel_json = json.load(f)
+        serviceleveldic = {}
+        for service in servicelevellist:
+            servicename = service
+            if service[-6:] == "_admin":
+                servicename = service[:-6]
+            serviceleveldic[servicename] = servicelevel_json.get(servicename, {}).get('html', ['No further information known.'])
+        if len(servicelevellist) == 1:
+            html = self.render_template('servicelevel_default.html',
+                                        user=user)
+        else:
+            html = self.render_template('servicelevel.html',
+                                        user=user,
+                                        servicelevel=servicelevel,
+                                        serviceleveldic=serviceleveldic)
+        self.finish(html)
+        
+class J4J_ServiceLevelAPIHandler(APIHandler):
+    @web.authenticated
+    async def post(self, servicelevel):
+        user = self.current_user
+        state = await user.get_auth_state()
+        if servicelevel not in state.get('servicelevel_list', []) and '{}_admin'.format(servicelevel) not in state.get('servicelevel_list', []):
+            raise web.HTTPError(403, "{} is not part of your service level list")
+        with open(user.authenticator.service_level_json_path, 'r') as f:
+            servicelevel_json = json.load(f)
+        if user.name in servicelevel_json.get(servicelevel, {}).get('admins', []):
+            state['servicelevel'] = '{}_admin'.format(servicelevel)
+        else:
+            state['servicelevel'] = servicelevel
+        await user.save_auth_state(state)
+        self.set_header('Content-Type', 'text/plain')
+        self.set_status(204)
+        
 class J4J_LogOffAllAPIHandler(APIHandler, LogoutHandler):
     @admin_only
     async def delete(self):
