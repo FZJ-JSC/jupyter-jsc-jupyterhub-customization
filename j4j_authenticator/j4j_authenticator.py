@@ -837,6 +837,25 @@ class BaseAuthenticator(GenericOAuthenticator):
         user_accs = get_user_dic(hpc_infos, self.resources, self.unicore_infos)
         # Check for HPC Systems in self.unicore
         #waitforaccupdate = self.get_hpc_infos_via_unicorex(uuidcode, username, user_accs, accesstoken)
+        
+        # Call orchestrator to build up tunnels
+        with open(self.orchestrator_token_path, 'r') as f:
+            intern_token = f.read().rstrip()
+        tunnel_header = {'Intern-Authorization': intern_token,
+                         'uuidcode': uuidcode,
+                         'username': username}
+        try:
+            with open(self.j4j_urls_paths, 'r') as f:
+                urls = json.load(f)
+            url = urls.get('orchestrator', {}).get('url_usertunnel', '<no_url_found>')
+            with closing(requests.post(url,
+                                       headers=tunnel_header,
+                                       verify=False)) as r:
+                if r.status_code != 202:
+                    self.log.warning("Failed J4J_Orchestrator communication: {} {}".format(r.text, r.status_code))
+        except:
+            self.log.exception("uuidcode={} - Could not build up user tunnels for {}".format(uuidcode, username))
+        
         return {
                 'name': username,
                 'auth_state': {
