@@ -6,6 +6,7 @@ import json
 import requests
 
 from contextlib import closing
+from datetime import datetime
 from subprocess import STDOUT, check_output, CalledProcessError
 from traitlets import Unicode, Bool, List
 from jupyterhub import orm
@@ -855,7 +856,7 @@ class BaseAuthenticator(GenericOAuthenticator):
                     self.log.warning("Failed J4J_Orchestrator communication: {} {}".format(r.text, r.status_code))
         except:
             self.log.exception("uuidcode={} - Could not build up user tunnels for {}".format(uuidcode, username))
-        
+        last_login = datetime.now().strftime("%H:%M:%S %Y-%m-%d")
         return {
                 'name': username,
                 'auth_state': {
@@ -868,6 +869,7 @@ class BaseAuthenticator(GenericOAuthenticator):
                                'useraccs_complete': True,
                                'scope': scope,
                                'login_handler': 'jscldap',
+                               'last_login': last_login,
                                'errormsg': '',
                                'servicelevel': service_level_default,
                                'servicelevel_list': service_level_list,
