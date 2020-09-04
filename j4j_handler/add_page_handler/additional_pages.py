@@ -77,11 +77,9 @@ class J4J_LogOffAllAPIHandler(APIHandler, LogoutHandler):
     @admin_only
     async def delete(self):
         db_user_list = list(self.db.query(orm.User))
-        self.log.debug(db_user_list)
-        self.log.debug(self.app.users)
         for db_user in db_user_list:
             db_user.cookie_id = new_token()
-            db_user.db.commit()
+            self.db.commit()
         return
 
 class J4J_RemoveAccountBaseHandler(BaseHandler):
