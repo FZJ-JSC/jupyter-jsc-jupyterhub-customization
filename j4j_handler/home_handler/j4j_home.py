@@ -26,9 +26,11 @@ class J4J_HomeHandler(HomeHandler):
             url = url_path_join(self.base_url, 'user', user.name)
         else:
             url = url_path_join(self.hub.base_url, 'spawn', user.name)
+        state = await user.get_auth_state()
         html = self.render_template('home.html',
                                     user=user,
                                     url=url,
+                                    lastlogin=state.get('last_login'),
                                     allow_named_servers=self.allow_named_servers,
                                     named_server_limit_per_user=self.named_server_limit_per_user,
                                     url_path_join=url_path_join,

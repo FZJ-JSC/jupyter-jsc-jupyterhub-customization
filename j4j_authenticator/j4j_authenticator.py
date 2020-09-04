@@ -6,6 +6,7 @@ import json
 import requests
 
 from contextlib import closing
+from datetime import datetime
 from subprocess import STDOUT, check_output, CalledProcessError
 from traitlets import Unicode, Bool, List
 from jupyterhub import orm
@@ -284,6 +285,12 @@ class BaseAuthenticator(GenericOAuthenticator):
         os.environ.get("DATABASE_JSON_PATH", ""),
         config = True,
         help = "Path to database infos"
+    )
+
+    service_level_json_path = Unicode(
+        os.environ.get("SERVICE_LEVEL_JSON_PATH", ""),
+        config = True,
+        help = "Path to service level infos"
     )
 
     send2fa_config_path = Unicode(
@@ -806,10 +813,50 @@ class BaseAuthenticator(GenericOAuthenticator):
                 use_hdf_resources = username in hdfaai_restriction or len(hpc_infos) != 0
         else:
             use_hdf_resources = True
+        # Check for different service levels for this specific user:
+        service_level_list = ['default']
+        service_level_default = 'default'
+        try:
+            with open(self.service_level_json_path, 'r') as f:
+                service_level_json = json.load(f)
+            for user_group in resp_json.get(group_key, []):
+                for name, service_level_infos in service_level_json.items():
+                    if user_group in service_level_infos.get('unity_groups', []):
+                        if username in service_level_infos.get('admins', []):
+                            servicename = "{}_admin".format(name)
+                        else:
+                            servicename = name
+                        # The user will be part of this service level
+                        if service_level_infos.get('priority', 1) >= service_level_json.get(service_level_list[0], {}).get('priority', 0) or len(service_level_list) == 1:
+                            service_level_default = servicename
+                        service_level_list.insert(0, servicename)
+        except:
+            self.log.exception("uuidcode={} - Could not check for service levels. Use default ones.".format(uuidcode))
+            service_level_list = ['default']
+            service_level_default = 'default'
         # Create a dictionary. So we only have to check for machines via UNICORE/X that are not known yet
         user_accs = get_user_dic(hpc_infos, self.resources, self.unicore_infos)
         # Check for HPC Systems in self.unicore
         #waitforaccupdate = self.get_hpc_infos_via_unicorex(uuidcode, username, user_accs, accesstoken)
+        
+        # Call orchestrator to build up tunnels
+        with open(self.orchestrator_token_path, 'r') as f:
+            intern_token = f.read().rstrip()
+        tunnel_header = {'Intern-Authorization': intern_token,
+                         'uuidcode': uuidcode,
+                         'username': username}
+        try:
+            with open(self.j4j_urls_paths, 'r') as f:
+                urls = json.load(f)
+            url = urls.get('orchestrator', {}).get('url_usertunnel', '<no_url_found>')
+            with closing(requests.post(url,
+                                       headers=tunnel_header,
+                                       verify=False)) as r:
+                if r.status_code != 202:
+                    self.log.warning("Failed J4J_Orchestrator communication: {} {}".format(r.text, r.status_code))
+        except:
+            self.log.exception("uuidcode={} - Could not build up user tunnels for {}".format(uuidcode, username))
+        last_login = datetime.now().strftime("%H:%M:%S %Y-%m-%d")
         return {
                 'name': username,
                 'auth_state': {
@@ -822,7 +869,10 @@ class BaseAuthenticator(GenericOAuthenticator):
                                'useraccs_complete': True,
                                'scope': scope,
                                'login_handler': 'jscldap',
+                               'last_login': last_login,
                                'errormsg': '',
+                               'servicelevel': service_level_default,
+                               'servicelevel_list': service_level_list,
                                'use_hdf_cloud': use_hdf_resources
                                }
                 }

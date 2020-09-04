@@ -20,7 +20,6 @@ import traceback
 import asyncio
 import json
 import time
-import os
 from functools import wraps
 
 from tornado import gen
