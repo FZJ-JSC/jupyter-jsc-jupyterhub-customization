@@ -11,3 +11,4 @@ from .additional_pages import J4J_ProjectsHandler
 from .additional_pages import J4J_TestHandler
 from .additional_pages import J4J_ServiceLevelBaseHandler
 from .additional_pages import J4J_ServiceLevelAPIHandler
+from .additional_pages import J4J_LogOffAllAPIHandler
