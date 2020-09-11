@@ -385,6 +385,8 @@ class BaseAuthenticator(GenericOAuthenticator):
                 j4j_paths = json.load(f)
             with open(j4j_paths.get('hub', {}).get('path_partitions', '<no_path_found>'), 'r') as f:
                 resources_filled = json.load(f)
+            with open(self.unicore_infos, 'r') as f:
+                unicore_infos_json = json.load(f)
             db_user = user.db.query(orm.User).filter(orm.User.name == user.name).first()
             user.db.refresh(db_user)
             db_spawner_all = user.db.query(orm.Spawner).filter(orm.Spawner.user_id == db_user.id).all()
@@ -412,7 +414,10 @@ class BaseAuthenticator(GenericOAuthenticator):
                     spawner[db_spawner.name]['active'] = False
                 if db_spawner.user_options and 'system' in db_spawner.user_options.keys():
                     if db_spawner.user_options.get('system').upper() == 'DOCKER' or db_spawner.user_options.get('system') == "HDF-Cloud":
-                        spawner[db_spawner.name]['spawnable'] = True
+                        if unicore_infos_json.get('HDF-Cloud', {}).get('maintenance', 'false').lower() == 'true':
+                            spawner[db_spawner.name]['spawnable'] = False
+                        else:
+                            spawner[db_spawner.name]['spawnable'] = True
                     else:
                         if db_spawner.user_options.get('reservation', 'None') != 'None' and db_spawner.user_options.get('reservation', 'None') != '' and db_spawner.user_options.get('reservation', 'None') != None:
                             if self.get_reservations().get(db_spawner.user_options.get('system').upper(), {}).get(db_spawner.user_options.get('reservation'), {}).get('State', 'INACTIVE').upper() == "ACTIVE":
@@ -450,6 +455,8 @@ class BaseAuthenticator(GenericOAuthenticator):
                             user.spawners[name] = user._new_spawner(name)
                             user.spawners[name].spawnable = spawner[name]['spawnable']
                             user.orm_user.orm_spawners.get(name).spawnable = spawner[name]['spawnable']
+                            if self.spawnable_dic.get(user.name) == None:
+                                self.spawnable_dic[user.name] = {}
                             self.spawnable_dic[user.name][name] = spawner[name]['spawnable']
                 if user.spawners[name].active:
                     #self.log.debug("{} - Spawner {} is in memory and active".format(user.name, name))
