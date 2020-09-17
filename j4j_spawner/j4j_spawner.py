@@ -606,7 +606,10 @@ class J4J_Spawner(Spawner):
         with open(self.user.authenticator.unicore_infos, 'r') as f:
             ux = json.load(f)
         if state.get('use_hdf_cloud', True):
-            user_dic['HDF-Cloud'] = ux.get('HDF-Cloud', {}).get('images')
+            if ux.get('HDF-Cloud', {}).get('maintenance', 'false') != "true": 
+                user_dic['HDF-Cloud'] = ux.get('HDF-Cloud', {}).get('images')
+            else:
+                maintenance.append("HDF-Cloud")
         if len(user_dic.keys()) == 0:
             if len(maintenance) > 0:
                 raise web.HTTPError(403, "No resources available for you. Systems in maintenance: {}".format(maintenance))
