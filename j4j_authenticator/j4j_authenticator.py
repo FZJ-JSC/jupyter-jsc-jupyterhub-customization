@@ -62,9 +62,15 @@ class JSCLDAPLoginHandler(OAuthLoginHandler, JSCLDAPEnvMixin):
         self.set_state_cookie(state)
         extra_parameters = {'state': state}
         jscldap_extra_parameters = os.environ.get('JSCLDAP_EXTRA_PARAMETERS', '')
-        for i in jscldap_extra_parameters.split():
-            keyvalue = i.split('=')
-            extra_parameters[keyvalue[0]] = keyvalue[1]
+        hdfaai_extra_parameters = os.environ.get('HDFAAI_EXTRA_PARAMETERS', '')
+        if self.get_argument("defaultauthenticator", "jsclap", True) == "hdfaai":
+            for i in hdfaai_extra_parameters.split():
+                keyvalue = i.split('=')
+                extra_parameters[keyvalue[0]] = keyvalue[1]
+        else:
+            for i in jscldap_extra_parameters.split():
+                keyvalue = i.split('=')
+                extra_parameters[keyvalue[0]] = keyvalue[1]
         self.authorize_redirect(
             redirect_uri=redirect_uri,
             client_id=unity[self.authenticator.jscldap_token_url]['client_id'],
