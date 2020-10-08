@@ -292,7 +292,7 @@ class J4J_Spawner(Spawner):
         # Create uuidcode to track this specific Call through the webservices
         uuidcode = uuid.uuid4().hex
         self.start_uuid = uuidcode
-        self.log.info("userserver={}, uuidcode={}, username={}, action=start, system={}, account={}, sendmail={}, project={}, partition={}, reservation={}, checkboxes={}, resources={}".format(self._log_name.lower(), uuidcode, self.user.name, self.user_options.get('system', ''), self.user_options.get('account', ''), self.user_options.get('sendmail', False), self.user_options.get('project', ''), self.user_options.get('partition', ''), self.user_options.get('reservation', ''), self.user_options.get('Checkboxes', []), self.user_options.get('Resources', {})))
+        self.log.info("userserver={}, uuidcode={}, username={}, action=start, service={}, dashboard={}, system={}, account={}, sendmail={}, project={}, partition={}, reservation={}, checkboxes={}, resources={}".format(self._log_name.lower(), uuidcode, self.user.name, self.user_options.get('service', ''), self.user_options.get('dashboard', ''), self.user_options.get('system', ''), self.user_options.get('account', ''), self.user_options.get('sendmail', False), self.user_options.get('project', ''), self.user_options.get('partition', ''), self.user_options.get('reservation', ''), self.user_options.get('Checkboxes', []), self.user_options.get('Resources', {})))
         # get a few JupyterHub variables, which we will need to create spawn_header and spawn_data
         db_user = self.user.db.query(orm.User).filter(orm.User.name == self.user.name).first()
         if db_user:
@@ -550,9 +550,8 @@ class J4J_Spawner(Spawner):
 
     async def cancel(self, uuidcode, stopped):
         try:
-            self.log.info("userserver={}, action=cancel, username={}, uuidcode={}".format(self._log_name.lower(), self.user.name, uuidcode))
             if str(type(self._spawn_future)) == "<class '_asyncio.Task'>" and self._spawn_future._state in ['PENDING']:
-                self.log.debug("userserver={} - uuidcode={} Spawner is pending, try to cancel".format(self._log_name.lower(), uuidcode))
+                self.log.info("userserver={}, action=cancel, username={}, uuidcode={}".format(self._log_name.lower(), self.user.name, uuidcode))
                 self.stopped = False
                 self.uuidcode_tmp = uuidcode
                 await self.user.stop(self.name)
