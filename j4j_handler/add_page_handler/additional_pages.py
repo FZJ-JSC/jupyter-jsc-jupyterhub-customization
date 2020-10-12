@@ -253,7 +253,7 @@ class J4J_2FAAPIHandler(APIHandler):
             raise web.HTTPError(403)
         uuidcode = uuid.uuid4().hex
         await user.authenticator.update_mem(user, uuidcode)
-        self.log.info("uuidcode={} - action=request2fa - Remove User from 2FA optional group: {}".format(uuidcode, user.name))
+        self.log.info("uuidcode={} - action=request2fa - Add User to 2FA optional group: {}".format(uuidcode, user.name))
         send2fa_config_path = user.authenticator.send2fa_config_path
         with open(send2fa_config_path, 'r') as f:
             send2fa_config = json.load(f)
@@ -336,10 +336,10 @@ class J4J_2FAAPIHandler(APIHandler):
                        'UID={}'.format(user.name)]
                 self.log.debug("uuidcode={} - Execute {}".format(uuidcode, ' '.join(cmd)))
                 subprocess.Popen(cmd)
-                if os.environ.get('2FASENDADMINMAIL', 'true').lower() == 'true':
-                    send2fa_config_path = user.authenticator.send2fa_config_path
-                    with open(send2fa_config_path, 'r') as f:
+                send2fa_config_path = user.authenticator.send2fa_config_path
+                with open(send2fa_config_path, 'r') as f:
                         send2fa_config = json.load(f)
+                if os.environ.get('2FASENDADMINMAIL', 'true').lower() == 'true':
                     if 'adminremovescript' not in send2fa_config.keys() or 'python3' not in send2fa_config.keys():
                         self.log.error("adminremovescript or python3 not defined in {}".format(send2fa_config_path))
                         self.set_status(204)
@@ -349,6 +349,15 @@ class J4J_2FAAPIHandler(APIHandler):
                                user.name]
                         subprocess.Popen(cmd)
                         self.set_status(204)
+                if 'userremovescript' not in send2fa_config.keys() or 'python3' not in send2fa_config.keys():
+                    self.log.error("userremovescript or python3 not defined in {}".format(send2fa_config_path))
+                    self.set_status(204)
+                else:
+                    cmd = [send2fa_config.get('python3'),
+                           send2fa_config.get('userremovescript'),
+                           user.name]
+                    subprocess.Popen(cmd)
+                    self.set_status(204)
                 self.set_header('Content-Type', 'text/plain')
                 self.set_status(204)
             except:
